@@ -1,0 +1,614 @@
+[
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9999997615814209,
+    "model": "cnn",
+    "file": "real_data_00000.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9999885559082031,
+    "model": "cnn",
+    "file": "real_data_00001.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9999991655349731,
+    "model": "cnn",
+    "file": "real_data_00002.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9938274025917053,
+    "model": "cnn",
+    "file": "real_data_00003.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9999942779541016,
+    "model": "cnn",
+    "file": "real_data_00004.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9999924898147583,
+    "model": "cnn",
+    "file": "real_data_00005.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9999960660934448,
+    "model": "cnn",
+    "file": "real_data_00006.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9999983310699463,
+    "model": "cnn",
+    "file": "real_data_00007.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9999676942825317,
+    "model": "cnn",
+    "file": "real_data_00008.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.999996542930603,
+    "model": "cnn",
+    "file": "real_data_00009.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9999998807907104,
+    "model": "cnn",
+    "file": "real_data_00010.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9999595880508423,
+    "model": "cnn",
+    "file": "real_data_00011.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_00012.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_00013.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_00014.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9999988079071045,
+    "model": "cnn",
+    "file": "real_data_00015.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_00016.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9999990463256836,
+    "model": "cnn",
+    "file": "real_data_00017.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9999985694885254,
+    "model": "cnn",
+    "file": "real_data_00018.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9999978542327881,
+    "model": "cnn",
+    "file": "real_data_00019.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9999997615814209,
+    "model": "cnn",
+    "file": "real_data_00020.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.999991774559021,
+    "model": "cnn",
+    "file": "real_data_00021.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9999948740005493,
+    "model": "cnn",
+    "file": "real_data_00022.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_00023.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9999886751174927,
+    "model": "cnn",
+    "file": "real_data_00024.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_00025.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.999998927116394,
+    "model": "cnn",
+    "file": "real_data_00026.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9999994039535522,
+    "model": "cnn",
+    "file": "real_data_00027.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9999128580093384,
+    "model": "cnn",
+    "file": "real_data_00028.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_00029.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9999914169311523,
+    "model": "cnn",
+    "file": "real_data_00030.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9999998807907104,
+    "model": "cnn",
+    "file": "real_data_00031.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_00032.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_00033.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9999996423721313,
+    "model": "cnn",
+    "file": "real_data_00034.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9999997615814209,
+    "model": "cnn",
+    "file": "real_data_00035.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9997647404670715,
+    "model": "cnn",
+    "file": "real_data_00036.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9999960660934448,
+    "model": "cnn",
+    "file": "real_data_00037.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9907526969909668,
+    "model": "cnn",
+    "file": "real_data_00038.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_00039.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9999833106994629,
+    "model": "cnn",
+    "file": "real_data_00040.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_00041.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9999997615814209,
+    "model": "cnn",
+    "file": "real_data_00042.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9999997615814209,
+    "model": "cnn",
+    "file": "real_data_00043.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9999996423721313,
+    "model": "cnn",
+    "file": "real_data_00044.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9999649524688721,
+    "model": "cnn",
+    "file": "real_data_00045.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9999986886978149,
+    "model": "cnn",
+    "file": "real_data_00046.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.998382568359375,
+    "model": "cnn",
+    "file": "real_data_00047.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_00048.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9999953508377075,
+    "model": "cnn",
+    "file": "real_data_00049.npz"
+  },
+  {
+    "pipeline_present": 1,
+    "confidence": 0.9999566078186035,
+    "model": "cnn",
+    "file": "real_data_00050.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 0.9963659048080444,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00000.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 0.9999990463256836,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00001.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 0.9999969005584717,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00002.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 0.9999673366546631,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00003.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 0.9999992847442627,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00004.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 0.9999358654022217,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00005.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 0.9999849796295166,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00006.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 0.9996472597122192,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00007.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00008.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 0.9999725818634033,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00009.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 0.9985432624816895,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00010.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 0.9999898672103882,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00011.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00012.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00013.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00014.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 0.9999996423721313,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00015.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00016.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00017.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00018.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 0.9999992847442627,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00019.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 0.9999793767929077,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00020.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 0.9999996423721313,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00021.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 0.7832334637641907,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00022.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00023.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00024.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 0.9999799728393555,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00025.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00026.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 0.9999998807907104,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00027.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 0.9999244213104248,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00028.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00029.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00030.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00031.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00032.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00033.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 0.9999957084655762,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00034.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 0.9999998807907104,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00035.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00036.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 0.9999855756759644,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00037.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 0.9999891519546509,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00038.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00039.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00040.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 0.9999873638153076,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00041.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 0.9999446868896484,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00042.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 0.9999874830245972,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00043.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 0.9999997615814209,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00044.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 0.9999992847442627,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00045.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00046.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 0.9999674558639526,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00047.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 0.9999997615814209,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00048.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00049.npz"
+  },
+  {
+    "pipeline_present": 0,
+    "confidence": 1.0,
+    "model": "cnn",
+    "file": "real_data_no_pipe_00050.npz"
+  }
+]
