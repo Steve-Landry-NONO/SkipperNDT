@@ -35,6 +35,8 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from src.preprocessing.loader import load_npz, image_stats
+from src.preprocessing.catalog import DatasetCatalog
+from src.preprocessing.labeling import summarize_labels
 from src.utils.visualization import (
     plot_channels,
     plot_profile_1d,
@@ -50,57 +52,53 @@ from src.utils.visualization import (
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
-def infer_label(filepath: Path) -> tuple[str, str]:
+def build_catalog(data_dir: Path) -> DatasetCatalog:
     """
-    Infère (origin, label) à partir du chemin complet du fichier.
-
-    Logique :
-      - Dossier contenant 'real'     → origin='real'
-      - Dossier contenant 'training' → origin='synth'
-      - Sinon : se rabat sur le nom du fichier
-      - 'no_pipe' dans le nom        → label='no_pipe', sinon 'pipe'
-    """
-    name   = filepath.stem.lower()
-    parent = filepath.parent.name.lower()
-
-    if "real" in parent:
-        origin = "real"
-    elif "training" in parent or "synth" in parent:
-        origin = "synth"
-    elif name.startswith("real"):
-        origin = "real"
-    else:
-        origin = "synth"
-
-    label = "no_pipe" if "no_pipe" in name else "pipe"
-    return origin, label
-
-
-def load_dataset(data_dir: Path) -> dict:
-    """
-    Charge tous les .npz trouvés dans data_dir et ses sous-dossiers.
-
+    Construit le catalogue lazy du dataset (metadata uniquement, sans charger les arrays).
     Structure attendue :
         data/raw/
         ├── real_data/                   → origin='real'
         └── Training_database_float16/   → origin='synth'
     """
-    files = sorted(data_dir.rglob("*.npz"))
-    if not files:
-        print(f"[!] Aucun fichier .npz trouvé dans {data_dir} (ni ses sous-dossiers)")
-        return {}
+    return DatasetCatalog(data_dir, verbose=True)
 
+
+def load_sample_dataset(data_dir: Path, max_per_category: int = 5) -> dict:
+    """
+    Charge un sous-ensemble représentatif en RAM pour les figures EDA.
+    Évite de saturer la mémoire sur le dataset complet (500+ fichiers).
+    """
+    catalog = DatasetCatalog(data_dir, verbose=False)
+    categories = [
+        ("synth", "single",   "pipe",    "clean"),
+        ("synth", "single",   "pipe",    "noisy"),
+        ("synth", "parallel", "pipe",    "clean"),
+        ("synth", "parallel", "pipe",    "noisy"),
+        ("synth", "no_pipe",  "no_pipe", "clean"),
+        ("real",  None,  1,  None),   # real pipe
+        ("real",  None,  0,  None),   # real no_pipe
+    ]
     datasets = {}
-    counts = {"real/pipe": 0, "real/no_pipe": 0, "synth/pipe": 0, "synth/no_pipe": 0}
-
-    for f in files:
-        origin, label = infer_label(f)
-        arr = load_npz(f)
-        datasets[f.stem] = {"data": arr, "origin": origin, "label": label, "path": f}
-        counts[f"{origin}/{label}"] += 1
-        print(f"  ✓ {f.parent.name:35s} / {f.name:45s} | {origin:5s} | {label:7s} | {arr.shape}")
-
-    print(f"\n  📊 Répartition : " + " | ".join(f"{k}: {v}" for k, v in counts.items()))
+    for origin, pipe_type, pipe_present, quality in categories:
+        kwargs = {"origin": origin}
+        if pipe_type     is not None: kwargs["pipe_type"]        = pipe_type
+        if pipe_present  is not None: kwargs["pipeline_present"] = pipe_present
+        if quality       is not None: kwargs["field_quality"]    = quality
+        entries = catalog.filter(**kwargs)[:max_per_category]
+        for e in entries:
+            arr = e.load()
+            datasets[e.stem] = {
+                "data":    arr,
+                "origin":  e.origin,
+                "label":   "pipe" if e.pipeline_present == 1 else "no_pipe",
+                "pipe_type": e.pipe_type,
+                "t1": e.pipeline_present,
+                "t3": e.current_sufficient,
+                "t4": e.parallel_pipelines,
+                "path": e.path,
+            }
+            print(f"  ✓ {e.stem[:55]:55s} | {e.origin:5s} | T1={e.pipeline_present} T3={e.current_sufficient} T4={e.parallel_pipelines}")
+    print(f"\n   {len(datasets)} fichiers chargés en RAM pour l\'EDA")
     return datasets
 
 
@@ -293,7 +291,7 @@ def fig3_separability(datasets: dict, out_dir: Path) -> None:
     print("  ✓ fig3_separabilite_pca_knn_svm.png")
 
     # Print résultats console
-    print(f"\n  📊 Résultats séparabilité:")
+    print(f"\n   Résultats séparabilité:")
     print(f"     PCA: PC1={var_exp[0]*100:.1f}%, PC2={var_exp[1]*100:.1f}%")
     for k, s in zip(k_vals, knn_scores):
         print(f"     KNN k={k}: {s*100:.1f}%")
@@ -393,22 +391,28 @@ def main():
     print(f"  out_dir  : {out_dir}")
     print(f"{'='*60}\n")
 
-    print("📂 Chargement des données...")
-    datasets = load_dataset(data_dir)
+    print(" Construction du catalogue (index sans chargement RAM)...")
+    catalog = build_catalog(data_dir)
+    if not catalog.entries:
+        print("[!] Aucune donnée trouvée, abandon.")
+        return
+
+    print("\n Chargement d\'un sous-ensemble représentatif pour les figures EDA...")
+    datasets = load_sample_dataset(data_dir, max_per_category=5)
     if not datasets:
         print("[!] Aucune donnée chargée, abandon.")
         return
 
     to_run = set(range(1, 6)) if args.figures == "all" else {int(x) for x in args.figures.split(",")}
 
-    print(f"\n🎨 Génération des figures...\n")
+    print(f"\n Génération des figures...\n")
     if 1 in to_run: fig1_channel_views(datasets, out_dir)
     if 2 in to_run: fig2_distributions_ks(datasets, out_dir)
     if 3 in to_run: fig3_separability(datasets, out_dir)
     if 4 in to_run: fig4_profiles(datasets, out_dir)
     if 5 in to_run: fig5_domain_gap(datasets, out_dir)
 
-    print(f"\n✅ Figures sauvegardées dans {out_dir}")
+    print(f"\n Figures sauvegardées dans {out_dir}")
 
 
 if __name__ == "__main__":
