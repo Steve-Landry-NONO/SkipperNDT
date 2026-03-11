@@ -1,0 +1,379 @@
+"""
+task1/train.py
+Entraînement — Tâche 1 : Détection de présence de conduite (pipe_present).
+
+Usage :
+    # Baseline ML (SVM/RF sur features statistiques) — rapide, pas de GPU requis
+    python task1/train.py --mode baseline --data_dir data/raw
+
+    # CNN léger
+    python task1/train.py --mode cnn --model cnn --data_dir data/raw
+
+    # DenseNet (meilleur résultat attendu)
+    python task1/train.py --mode cnn --model densenet --data_dir data/raw
+
+    # Options supplémentaires
+    python task1/train.py --mode cnn --model cnn --epochs 50 --batch_size 16 --lr 1e-3
+
+Sorties :
+    task1/checkpoints/best_model.pt     ← meilleur checkpoint (val_loss)
+    task1/checkpoints/last_model.pt     ← dernier checkpoint
+    task1/results/metrics.json          ← métriques finales
+    task1/results/baseline_results.json ← résultats baseline ML (si --mode baseline)
+"""
+
+import argparse
+import json
+import sys
+import time
+from pathlib import Path
+
+import numpy as np
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+from src.preprocessing.catalog import DatasetCatalog
+from src.preprocessing.features import extract_features_batch, N_FEATURES, FEATURE_NAMES
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PARTIE 1 : BASELINE ML (SVM / Random Forest)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def run_baseline(data_dir: Path, out_dir: Path) -> dict:
+    """
+    Baseline ML sur features statistiques (39 features × image).
+    Pas de GPU requis. Sert de référence pour le CNN.
+    """
+    from sklearn.svm import SVC
+    from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+    from sklearn.preprocessing import StandardScaler
+    from sklearn.model_selection import StratifiedKFold, cross_validate
+    from sklearn.metrics import classification_report, make_scorer, recall_score
+    from sklearn.pipeline import Pipeline
+    import pickle
+
+    print("\n" + "="*60)
+    print("  BASELINE ML — Tâche 1 : pipe_present")
+    print("="*60)
+
+    # ── Chargement des données ─────────────────────────────────
+    print("\n📂 Construction du catalogue...")
+    catalog = DatasetCatalog(data_dir, verbose=False)
+    paths, labels = catalog.get_paths_and_labels("t1")
+    print(f"  {len(paths)} fichiers | pipe={sum(labels)} | no_pipe={len(labels)-sum(labels)}")
+
+    print("\n⚙️  Extraction des features (peut prendre ~5 min pour 2000+ fichiers)...")
+    t0 = time.time()
+    X, y = extract_features_batch(paths, labels, verbose=True)
+    print(f"  ✓ {X.shape} features extraites en {time.time()-t0:.0f}s")
+
+    # ── Modèles à évaluer ─────────────────────────────────────
+    scorers = {
+        "accuracy": "accuracy",
+        "recall":   make_scorer(recall_score, pos_label=1),
+        "f1":       "f1",
+    }
+
+    models = {
+        "SVM_linear": Pipeline([
+            ("scaler", StandardScaler()),
+            ("clf",    SVC(kernel="linear", C=1.0, class_weight="balanced")),
+        ]),
+        "SVM_rbf": Pipeline([
+            ("scaler", StandardScaler()),
+            ("clf",    SVC(kernel="rbf", C=10.0, gamma="scale", class_weight="balanced")),
+        ]),
+        "RandomForest": Pipeline([
+            ("scaler", StandardScaler()),
+            ("clf",    RandomForestClassifier(
+                n_estimators=200, max_depth=None,
+                class_weight="balanced", n_jobs=-1, random_state=42
+            )),
+        ]),
+        "GradientBoosting": Pipeline([
+            ("scaler", StandardScaler()),
+            ("clf",    GradientBoostingClassifier(
+                n_estimators=200, learning_rate=0.05,
+                max_depth=4, random_state=42
+            )),
+        ]),
+    }
+
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    results = {}
+
+    print("\n📊 Évaluation par cross-validation (5 folds)...\n")
+    print(f"  {'Modèle':<22} {'Accuracy':>10} {'Recall':>10} {'F1':>10}")
+    print("  " + "-"*52)
+
+    best_score = 0.0
+    best_name  = ""
+    best_pipe  = None
+
+    for name, pipe in models.items():
+        t0 = time.time()
+        cv_res = cross_validate(pipe, X, y, cv=cv, scoring=scorers, n_jobs=-1)
+        acc    = cv_res["test_accuracy"].mean()
+        rec    = cv_res["test_recall"].mean()
+        f1     = cv_res["test_f1"].mean()
+        elapsed = time.time() - t0
+
+        # Score SKIPPER : 60% Accuracy + 40% Recall
+        skipper_score = 0.6 * acc + 0.4 * rec
+
+        results[name] = {
+            "accuracy": float(acc),
+            "recall":   float(rec),
+            "f1":       float(f1),
+            "skipper_score": float(skipper_score),
+            "time_s":   float(elapsed),
+        }
+
+        ok_acc = "✓" if acc >= 0.92 else "✗"
+        ok_rec = "✓" if rec >= 0.95 else "✗"
+        print(f"  {name:<22} {acc*100:>8.1f}%{ok_acc} {rec*100:>8.1f}%{ok_rec} {f1*100:>8.1f}%"
+              f"  [SKIPPER={skipper_score*100:.1f}%] ({elapsed:.0f}s)")
+
+        if skipper_score > best_score:
+            best_score = skipper_score
+            best_name  = name
+            best_pipe  = pipe
+
+    # ── Ré-entraîner le meilleur modèle sur tout le dataset ───
+    print(f"\n🏆 Meilleur modèle : {best_name} (score SKIPPER = {best_score*100:.1f}%)")
+    print(f"   Objectifs SKIPPER : Accuracy ≥ 92% | Recall ≥ 95%")
+
+    print(f"\n💾 Entraînement final sur 100% des données...")
+    best_pipe.fit(X, y)
+
+    # Sauvegarde
+    out_dir.mkdir(parents=True, exist_ok=True)
+    model_path = out_dir / "baseline_best.pkl"
+    with open(model_path, "wb") as f:
+        pickle.dump({"model": best_pipe, "scaler_inside": True,
+                     "feature_names": FEATURE_NAMES, "n_features": N_FEATURES}, f)
+    print(f"   ✓ Modèle sauvegardé : {model_path}")
+
+    # Rapport final
+    y_pred = best_pipe.predict(X)
+    print(f"\n📋 Rapport (train complet, pour vérification) :\n")
+    print(classification_report(y, y_pred, target_names=["no_pipe", "pipe"]))
+
+    # Sauvegarde JSON
+    summary = {"best_model": best_name, "best_skipper_score": float(best_score), "models": results}
+    with open(out_dir / "baseline_results.json", "w") as f:
+        json.dump(summary, f, indent=2)
+    print(f"   ✓ Résultats : {out_dir / 'baseline_results.json'}")
+
+    return summary
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PARTIE 2 : CNN (MagCNN ou MagDenseNet)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def run_cnn(
+    data_dir:   Path,
+    out_dir:    Path,
+    model_name: str  = "cnn",
+    epochs:     int  = 50,
+    batch_size: int  = 16,
+    lr:         float = 1e-3,
+    val_split:  float = 0.2,
+) -> dict:
+    """
+    Entraînement CNN pour la Tâche 1.
+    Nécessite PyTorch.
+    """
+    try:
+        import torch
+        import torch.nn as nn
+        from torch.utils.data import DataLoader, Subset
+        from sklearn.model_selection import train_test_split
+    except ImportError:
+        print("[!] PyTorch non disponible. Installez-le : pip install torch")
+        return {}
+
+    from src.models.dataset import MagneticMapDataset
+    from src.models.cnn_task1 import get_model, count_params
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"\n{'='*60}")
+    print(f"  CNN — Tâche 1 : pipe_present | modèle: {model_name}")
+    print(f"  Device: {device}")
+    print(f"{'='*60}")
+
+    # ── Données ───────────────────────────────────────────────
+    catalog = DatasetCatalog(data_dir, verbose=False)
+    paths, labels = catalog.get_paths_and_labels("t1")
+    print(f"\n  Dataset : {len(paths)} fichiers | pipe={sum(labels)} | no_pipe={len(labels)-sum(labels)}")
+
+    idx_train, idx_val = train_test_split(
+        range(len(paths)), test_size=val_split,
+        stratify=labels, random_state=42
+    )
+
+    train_paths  = [paths[i]  for i in idx_train]
+    train_labels = [labels[i] for i in idx_train]
+    val_paths    = [paths[i]  for i in idx_val]
+    val_labels   = [labels[i] for i in idx_val]
+
+    train_ds = MagneticMapDataset(train_paths, train_labels, augment=True)
+    val_ds   = MagneticMapDataset(val_paths,   val_labels,   augment=False)
+
+    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True,  num_workers=2, pin_memory=True)
+    val_loader   = DataLoader(val_ds,   batch_size=batch_size, shuffle=False, num_workers=2, pin_memory=True)
+
+    print(f"  Train: {len(train_ds)} | Val: {len(val_ds)}")
+
+    # ── Modèle ────────────────────────────────────────────────
+    model = get_model(model_name).to(device)
+    print(f"  Paramètres : {count_params(model):,}")
+
+    # Loss avec pondération classe (déséquilibre ~60/40)
+    class_w = train_ds.class_weights().to(device)
+    criterion = nn.CrossEntropyLoss(weight=class_w)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+
+    # ── Boucle d'entraînement ─────────────────────────────────
+    out_dir.mkdir(parents=True, exist_ok=True)
+    best_val_loss = float("inf")
+    patience_counter = 0
+    patience = 10   # early stopping
+    history = []
+
+    print(f"\n{'Epoch':>6} {'Train Loss':>12} {'Val Loss':>10} {'Val Acc':>9} {'Val Rec':>9} {'LR':>10}")
+    print("-" * 62)
+
+    for epoch in range(1, epochs + 1):
+        # ── Train ──
+        model.train()
+        train_loss = 0.0
+        for x, y_batch in train_loader:
+            x, y_batch = x.to(device), y_batch.to(device)
+            optimizer.zero_grad()
+            logits = model(x)
+            loss = criterion(logits, y_batch)
+            loss.backward()
+            nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            optimizer.step()
+            train_loss += loss.item() * len(x)
+        train_loss /= len(train_ds)
+
+        # ── Validation ──
+        model.eval()
+        val_loss = 0.0
+        all_preds, all_labels = [], []
+        with torch.no_grad():
+            for x, y_batch in val_loader:
+                x, y_batch = x.to(device), y_batch.to(device)
+                logits = model(x)
+                val_loss += criterion(logits, y_batch).item() * len(x)
+                preds = logits.argmax(dim=1)
+                all_preds.extend(preds.cpu().numpy())
+                all_labels.extend(y_batch.cpu().numpy())
+
+        val_loss /= len(val_ds)
+        all_preds  = np.array(all_preds)
+        all_labels = np.array(all_labels)
+
+        acc = (all_preds == all_labels).mean()
+        tp  = ((all_preds == 1) & (all_labels == 1)).sum()
+        fn  = ((all_preds == 0) & (all_labels == 1)).sum()
+        rec = tp / (tp + fn + 1e-8)
+
+        scheduler.step()
+        current_lr = scheduler.get_last_lr()[0]
+
+        history.append({
+            "epoch": epoch, "train_loss": train_loss, "val_loss": val_loss,
+            "val_acc": float(acc), "val_recall": float(rec),
+        })
+
+        print(f"{epoch:>6} {train_loss:>12.4f} {val_loss:>10.4f} {acc*100:>8.1f}% {rec*100:>8.1f}% {current_lr:>10.6f}")
+
+        # ── Early stopping + sauvegarde ──
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            patience_counter = 0
+            torch.save({
+                "epoch": epoch,
+                "model_state": model.state_dict(),
+                "optimizer_state": optimizer.state_dict(),
+                "val_loss": val_loss,
+                "val_acc": float(acc),
+                "val_recall": float(rec),
+                "model_name": model_name,
+            }, out_dir / "best_model.pt")
+            print(f"         ↑ Meilleur modèle sauvegardé (val_loss={val_loss:.4f})")
+        else:
+            patience_counter += 1
+            if patience_counter >= patience:
+                print(f"\n⏹  Early stopping à l'epoch {epoch} (patience={patience})")
+                break
+
+    # ── Sauvegarde finale ──────────────────────────────────────
+    torch.save({"epoch": epoch, "model_state": model.state_dict()}, out_dir / "last_model.pt")
+
+    results = {
+        "model": model_name,
+        "best_val_loss": float(best_val_loss),
+        "best_val_acc":  float(max(h["val_acc"]    for h in history)),
+        "best_val_rec":  float(max(h["val_recall"] for h in history)),
+        "epochs_trained": epoch,
+        "history": history,
+    }
+
+    with open(out_dir / "metrics.json", "w") as f:
+        json.dump(results, f, indent=2)
+
+    print(f"\n✅ Entraînement terminé")
+    print(f"   Best val_acc    : {results['best_val_acc']*100:.1f}%  (objectif: 92%)")
+    print(f"   Best val_recall : {results['best_val_rec']*100:.1f}%  (objectif: 95%)")
+    print(f"   Checkpoints     : {out_dir}")
+
+    return results
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CLI
+# ─────────────────────────────────────────────────────────────────────────────
+
+def main():
+    parser = argparse.ArgumentParser(description="Train — Tâche 1 : pipe_present")
+    parser.add_argument("--mode",       type=str, default="baseline",
+                        choices=["baseline", "cnn"],
+                        help="'baseline' = SVM/RF | 'cnn' = réseau de neurones")
+    parser.add_argument("--model",      type=str, default="cnn",
+                        choices=["cnn", "densenet"],
+                        help="Architecture CNN (ignoré en mode baseline)")
+    parser.add_argument("--data_dir",   type=str, default="data/raw")
+    parser.add_argument("--out_dir",    type=str, default="task1/checkpoints")
+    parser.add_argument("--epochs",     type=int,   default=50)
+    parser.add_argument("--batch_size", type=int,   default=16)
+    parser.add_argument("--lr",         type=float, default=1e-3)
+    parser.add_argument("--val_split",  type=float, default=0.2)
+    args = parser.parse_args()
+
+    data_dir = ROOT / args.data_dir
+    out_dir  = ROOT / args.out_dir
+
+    if args.mode == "baseline":
+        out_dir = ROOT / "task1/results"
+        run_baseline(data_dir, out_dir)
+    else:
+        run_cnn(
+            data_dir, out_dir,
+            model_name = args.model,
+            epochs     = args.epochs,
+            batch_size = args.batch_size,
+            lr         = args.lr,
+            val_split  = args.val_split,
+        )
+
+
+if __name__ == "__main__":
+    main()
