@@ -1,0 +1,44 @@
+# Données (trop lourdes — stocker sur Drive/LFS)
+data/raw/real_data/
+data/raw/Training_database_float16/
+*.npz
+*.tif
+*.tiff
+*.npy
+
+# Modèles entraînés
+*.pt
+*.pth
+*.ckpt
+outputs/models/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+.env
+.venv
+env/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs & outputs lourds
+*.log
+logs/
+runs/
+outputs/figures/*.png
+outputs/figures/*.pdf
