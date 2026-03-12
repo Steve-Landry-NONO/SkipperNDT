@@ -1,0 +1,39 @@
+{
+  "task": "t3_current_sufficient",
+  "best_model": "RandomForest",
+  "best_skipper_score": 0.8846970567058358,
+  "skipper_weights": {
+    "accuracy": 0.7,
+    "recall": 0.3
+  },
+  "models": {
+    "SVM_linear": {
+      "accuracy": 0.705961573217168,
+      "recall": 0.5894969849629799,
+      "f1": 0.736841112335561,
+      "skipper_score": 0.6710221967409116,
+      "time_s": 2.319204330444336
+    },
+    "SVM_rbf": {
+      "accuracy": 0.7977358984426123,
+      "recall": 0.7947459481464519,
+      "f1": 0.8461019525422799,
+      "skipper_score": 0.7968389133537641,
+      "time_s": 1.3687620162963867
+    },
+    "RandomForest": {
+      "accuracy": 0.8750456497217393,
+      "recall": 0.9072170063353943,
+      "f1": 0.9104110519285946,
+      "skipper_score": 0.8846970567058358,
+      "time_s": 1.8650364875793457
+    },
+    "GradientBoosting": {
+      "accuracy": 0.8697521516131644,
+      "recall": 0.8920922067017785,
+      "f1": 0.9055125795498146,
+      "skipper_score": 0.8764541681397486,
+      "time_s": 11.311536312103271
+    }
+  }
+}
