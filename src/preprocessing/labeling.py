@@ -97,12 +97,14 @@ def extract_labels(filepath: Path) -> Dict[str, Any]:
         current_sufficient = None  # données réelles : inconnu
 
     # ─── TÂCHE 4 : parallel_pipelines ────────────────────────
+    # Seuls les fichiers avec un pipe ont un sens pour T4
+    # no_pipe → pas de conduite → question non pertinente → None
     if pipe_type == "parallel":
         parallel_pipelines = 1
-    elif pipe_type in ("single", "no_pipe"):
+    elif pipe_type == "single":
         parallel_pipelines = 0
     else:
-        parallel_pipelines = None  # réel : non labellisé
+        parallel_pipelines = None  # no_pipe ou réel : exclu de T4
 
     return {
         "origin":             origin,
