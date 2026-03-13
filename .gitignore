@@ -42,3 +42,4 @@ logs/
 runs/
 outputs/figures/*.png
 outputs/figures/*.pdf
+*.pkl
