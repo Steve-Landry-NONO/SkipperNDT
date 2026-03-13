@@ -98,7 +98,7 @@ def load_sample_dataset(data_dir: Path, max_per_category: int = 5) -> dict:
                 "path": e.path,
             }
             print(f"  ✓ {e.stem[:55]:55s} | {e.origin:5s} | T1={e.pipeline_present} T3={e.current_sufficient} T4={e.parallel_pipelines}")
-    print(f"\n   {len(datasets)} fichiers chargés en RAM pour l\'EDA")
+    print(f"\n  📦 {len(datasets)} fichiers chargés en RAM pour l\'EDA")
     return datasets
 
 
@@ -291,7 +291,7 @@ def fig3_separability(datasets: dict, out_dir: Path) -> None:
     print("  ✓ fig3_separabilite_pca_knn_svm.png")
 
     # Print résultats console
-    print(f"\n   Résultats séparabilité:")
+    print(f"\n  📊 Résultats séparabilité:")
     print(f"     PCA: PC1={var_exp[0]*100:.1f}%, PC2={var_exp[1]*100:.1f}%")
     for k, s in zip(k_vals, knn_scores):
         print(f"     KNN k={k}: {s*100:.1f}%")
@@ -391,13 +391,13 @@ def main():
     print(f"  out_dir  : {out_dir}")
     print(f"{'='*60}\n")
 
-    print(" Construction du catalogue (index sans chargement RAM)...")
+    print("📊 Construction du catalogue (index sans chargement RAM)...")
     catalog = build_catalog(data_dir)
     if not catalog.entries:
         print("[!] Aucune donnée trouvée, abandon.")
         return
 
-    print("\n Chargement d\'un sous-ensemble représentatif pour les figures EDA...")
+    print("\n📂 Chargement d\'un sous-ensemble représentatif pour les figures EDA...")
     datasets = load_sample_dataset(data_dir, max_per_category=5)
     if not datasets:
         print("[!] Aucune donnée chargée, abandon.")
@@ -405,14 +405,14 @@ def main():
 
     to_run = set(range(1, 6)) if args.figures == "all" else {int(x) for x in args.figures.split(",")}
 
-    print(f"\n Génération des figures...\n")
+    print(f"\n🎨 Génération des figures...\n")
     if 1 in to_run: fig1_channel_views(datasets, out_dir)
     if 2 in to_run: fig2_distributions_ks(datasets, out_dir)
     if 3 in to_run: fig3_separability(datasets, out_dir)
     if 4 in to_run: fig4_profiles(datasets, out_dir)
     if 5 in to_run: fig5_domain_gap(datasets, out_dir)
 
-    print(f"\n Figures sauvegardées dans {out_dir}")
+    print(f"\n✅ Figures sauvegardées dans {out_dir}")
 
 
 if __name__ == "__main__":
