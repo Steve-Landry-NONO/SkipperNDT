@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Algorithme de mesure géométrique — map_width | SKIPPER NDT</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --bg2: #181c24;
+    --bg3: #1e2330;
+    --border: rgba(255,255,255,0.08);
+    --text: #e8eaf0;
+    --text2: #8892a4;
+    --blue: #378ADD;
+    --red: #E24B4A;
+    --green: #639922;
+    --amber: #EF9F27;
+    --pink: #D4537E;
+    --mono: 'Courier New', monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+  }
+
+  header {
+    padding: 24px 32px 16px;
+    border-bottom: 0.5px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 20px;
+  }
+  .logo {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--blue);
+    text-transform: uppercase;
+  }
+  header h1 {
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--text);
+  }
+  .badge {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: rgba(99,153,34,0.18);
+    color: #8bc34a;
+    border: 0.5px solid rgba(99,153,34,0.35);
+    margin-left: auto;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    height: calc(100vh - 65px);
+  }
+
+  /* Panneau gauche — canvas 3D */
+  .left {
+    display: flex;
+    flex-direction: column;
+    border-right: 0.5px solid var(--border);
+  }
+
+  #stage {
+    flex: 1;
+    width: 100%;
+    display: block;
+    background: var(--bg);
+  }
+
+  .stepper {
+    display: flex;
+    border-top: 0.5px solid var(--border);
+    background: var(--bg2);
+    flex-shrink: 0;
+  }
+  .stp {
+    flex: 1;
+    padding: 10px 4px;
+    text-align: center;
+    font-size: 10px;
+    color: var(--text2);
+    cursor: pointer;
+    border-right: 0.5px solid var(--border);
+    transition: all 0.2s;
+    line-height: 1.4;
+  }
+  .stp:last-child { border-right: none; }
+  .stp .num { display: block; font-size: 15px; font-weight: 600; margin-bottom: 2px; }
+  .stp:hover { background: var(--bg3); color: var(--text); }
+  .stp.active {
+    color: var(--text);
+    background: var(--bg3);
+    border-bottom: 2px solid var(--blue);
+  }
+
+  .playbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    border-top: 0.5px solid var(--border);
+    background: var(--bg2);
+    flex-shrink: 0;
+  }
+  .btn {
+    font-size: 12px;
+    padding: 5px 13px;
+    border-radius: 6px;
+    border: 0.5px solid var(--border);
+    background: var(--bg3);
+    color: var(--text);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn:hover { background: rgba(255,255,255,0.08); }
+  .prog-bar {
+    flex: 1;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .prog-fill {
+    height: 100%;
+    background: var(--blue);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.1s;
+  }
+  #time-label { font-size: 11px; color: var(--text2); min-width: 32px; text-align: right; }
+
+  /* Panneau droit — infos */
+  .right {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg2);
+    overflow-y: auto;
+  }
+
+  .info-header {
+    padding: 20px 20px 12px;
+    border-bottom: 0.5px solid var(--border);
+    flex-shrink: 0;
+  }
+  .step-number {
+    font-size: 11px;
+    color: var(--blue);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 6px;
+  }
+  #info-title {
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--text);
+  }
+
+  .info-body {
+    padding: 16px 20px;
+    flex: 1;
+  }
+  #info-desc {
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text2);
+    margin-bottom: 16px;
+  }
+  .code-block {
+    background: var(--bg);
+    border: 0.5px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    line-height: 1.7;
+    color: #a8c5e8;
+    white-space: pre;
+    overflow-x: auto;
+  }
+  .code-comment { color: #4a5568; }
+  .code-kw { color: #c792ea; }
+  .code-fn { color: #82aaff; }
+  .code-str { color: #c3e88d; }
+  .code-num { color: var(--amber); }
+
+  .metric-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 16px;
+  }
+  .metric {
+    background: var(--bg);
+    border: 0.5px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .metric-label { font-size: 10px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; }
+  .metric-val { font-size: 20px; font-weight: 500; color: var(--text); margin-top: 2px; }
+  .metric-val.good { color: #8bc34a; }
+  .metric-val.blue { color: var(--blue); }
+
+  .legend {
+    padding: 12px 20px;
+    border-top: 0.5px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .leg { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text2); }
+  .ld { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">SKIPPER NDT</span>
+  <h1>Algorithme de mesure géométrique — map_width</h1>
+  <span class="badge">MAE = 0.61m sur données réelles ✓</span>
+</header>
+
+<div class="layout">
+  <div class="left">
+    <canvas id="stage"></canvas>
+
+    <div class="stepper" id="stepper">
+      <div class="stp active" data-s="0"><span class="num">①</span>Champ Bz</div>
+      <div class="stp" data-s="1"><span class="num">②</span>Profil ligne</div>
+      <div class="stp" data-s="2"><span class="num">③</span>Trace brute</div>
+      <div class="stp" data-s="3"><span class="num">④</span>Lissage</div>
+      <div class="stp" data-s="4"><span class="num">⑤</span>Tangente</div>
+      <div class="stp" data-s="5"><span class="num">⑥</span>Perpendiculaire</div>
+      <div class="stp" data-s="6"><span class="num">⑦</span>Largeur finale</div>
+    </div>
+
+    <div class="playbar">
+      <button class="btn" id="btn-prev">◀</button>
+      <button class="btn" id="btn-play">⏸ Pause</button>
+      <button class="btn" id="btn-next">▶</button>
+      <div class="prog-bar"><div class="prog-fill" id="prog-fill"></div></div>
+      <span id="time-label">0s</span>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="info-header">
+      <div class="step-number" id="step-number">Étape 1 / 7</div>
+      <div id="info-title">Surface Bz — le champ magnétique en 3D</div>
+    </div>
+    <div class="info-body">
+      <div id="info-desc"></div>
+      <div class="code-block" id="info-code"></div>
+      <div class="metric-row" id="metric-row" style="display:none"></div>
+    </div>
+    <div class="legend">
+      <div class="leg"><div class="ld" style="background:#378ADD"></div>Intensité Bz (champ magnétique)</div>
+      <div class="leg"><div class="ld" style="background:#E24B4A"></div>Trace du pipe (min Bz par ligne)</div>
+      <div class="leg"><div class="ld" style="background:#FFD050"></div>Trace lissée (moyenne glissante)</div>
+      <div class="leg"><div class="ld" style="background:#639922"></div>Tangente locale</div>
+      <div class="leg"><div class="ld" style="background:#EF9F27"></div>Perpendiculaire + mesure</div>
+      <div class="leg"><div class="ld" style="background:#D4537E"></div>Zone NaN (bord de carte)</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('stage');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+  const left = canvas.parentElement;
+  canvas.width  = left.clientWidth;
+  canvas.height = left.clientHeight - left.querySelector('.stepper').offsetHeight - left.querySelector('.playbar').offsetHeight;
+}
+window.addEventListener('resize', () => { resize(); });
+setTimeout(resize, 50);
+
+const GX = 44, GY = 32;
+
+function pipeCol(gy) {
+  return GX/2 + 6 + Math.sin(gy/(GY-1)*Math.PI*1.3)*10;
+}
+function bz(gx, gy) {
+  const pc = pipeCol(gy);
+  const dist = Math.abs(gx - pc);
+  if (dist > 15) return null;
+  const v = dist*dist*0.27 + Math.sin(gy*0.35+gx*0.1)*0.6;
+  return Math.min(v, 24);
+}
+
+function iso(gx, gy, gz) {
+  const W = canvas.width, H = canvas.height;
+  const ox = W/2 - 10, oy = H*0.17;
+  const SX = Math.min(13, W/52), SY = Math.min(6.5, W/105);
+  return {
+    x: ox + (gx-GX/2)*SX - (gy-GY/2)*SX*0.55,
+    y: oy + (gx-GX/2)*SY*0.35 + (gy-GY/2)*SY - gz*15
+  };
+}
+
+// Trace
+const traceRaw = [];
+for (let gy=0; gy<GY; gy++) {
+  let minV=Infinity, minGx=GX/2;
+  for (let gx=1; gx<GX-1; gx++) {
+    const v = bz(gx,gy);
+    if (v!==null && v<minV) { minV=v; minGx=gx; }
+  }
+  traceRaw.push({gy, gx:minGx, gz: minV===Infinity?0:minV});
+}
+function smooth(arr, w=4) {
+  return arr.map((p,i) => {
+    let sx=0, n=0;
+    for (let d=-w; d<=w; d++) {
+      if (i+d>=0 && i+d<arr.length) { sx+=arr[i+d].gx; n++; }
+    }
+    return {...p, gxs: sx/n};
+  });
+}
+const traceSmooth = smooth(traceRaw);
+
+// Cellules surface
+const cells = [];
+for (let gy=0; gy<GY-1; gy++) {
+  for (let gx=0; gx<GX-1; gx++) {
+    const z00=bz(gx,gy), z10=bz(gx+1,gy), z01=bz(gx,gy+1), z11=bz(gx+1,gy+1);
+    if (z00===null||z10===null||z01===null||z11===null) continue;
+    cells.push({gx, gy, z00, z10, z01, z11, zmid:(z00+z10+z01+z11)/4});
+  }
+}
+cells.sort((a,b) => iso(a.gx+.5,a.gy+.5,a.zmid).y - iso(b.gx+.5,b.gy+.5,b.zmid).y);
+cells.reverse();
+
+function bzColor(z, a=1) {
+  const t = Math.max(0, Math.min(1, (z||0)/24));
+  const r = Math.round(55  + t*(183-55));
+  const g = Math.round(138 + t*(210-138));
+  const b = Math.round(221 + t*(238-221));
+  return `rgba(${r},${g},${b},${a})`;
+}
+function easeInOut(t) { return t<0.5 ? 2*t*t : 1-2*(1-t)*(1-t); }
+
+function drawSurface(alpha=1) {
+  for (const c of cells) {
+    const p00=iso(c.gx,c.gy,c.z00), p10=iso(c.gx+1,c.gy,c.z10);
+    const p11=iso(c.gx+1,c.gy+1,c.z11), p01=iso(c.gx,c.gy+1,c.z01);
+    ctx.beginPath();
+    ctx.moveTo(p00.x,p00.y); ctx.lineTo(p10.x,p10.y);
+    ctx.lineTo(p11.x,p11.y); ctx.lineTo(p01.x,p01.y);
+    ctx.closePath();
+    ctx.fillStyle = bzColor(c.zmid, alpha*0.85);
+    ctx.fill();
+    ctx.strokeStyle = `rgba(200,225,245,${alpha*0.12})`;
+    ctx.lineWidth = 0.3; ctx.stroke();
+  }
+  for (let gy=0; gy<GY-1; gy++) {
+    for (let gx=0; gx<GX-1; gx++) {
+      if (bz(gx,gy)!==null) continue;
+      const p00=iso(gx,gy,0), p10=iso(gx+1,gy,0), p11=iso(gx+1,gy+1,0), p01=iso(gx,gy+1,0);
+      ctx.beginPath();
+      ctx.moveTo(p00.x,p00.y); ctx.lineTo(p10.x,p10.y);
+      ctx.lineTo(p11.x,p11.y); ctx.lineTo(p01.x,p01.y);
+      ctx.closePath();
+      ctx.fillStyle = `rgba(212,83,126,${alpha*0.2})`; ctx.fill();
+    }
+  }
+}
+
+function drawTraceRaw(alpha, frac=1) {
+  const n = Math.floor(traceRaw.length * frac);
+  ctx.beginPath();
+  for (let i=0; i<n; i++) {
+    const p = iso(traceRaw[i].gx, traceRaw[i].gy, traceRaw[i].gz);
+    i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y);
+  }
+  ctx.strokeStyle = `rgba(226,75,74,${alpha})`; ctx.lineWidth = 2.2; ctx.stroke();
+  for (let i=0; i<n; i++) {
+    const p = iso(traceRaw[i].gx, traceRaw[i].gy, traceRaw[i].gz);
+    ctx.beginPath(); ctx.arc(p.x,p.y,2,0,Math.PI*2);
+    ctx.fillStyle = `rgba(226,75,74,${alpha*0.7})`; ctx.fill();
+  }
+}
+
+function drawTraceSmooth(alpha, frac=1) {
+  const n = Math.floor(traceSmooth.length * frac);
+  ctx.beginPath();
+  for (let i=0; i<n; i++) {
+    const p = iso(traceSmooth[i].gxs, traceSmooth[i].gy, traceSmooth[i].gz);
+    i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y);
+  }
+  ctx.strokeStyle = `rgba(255,208,50,${alpha})`; ctx.lineWidth = 2.5; ctx.stroke();
+}
+
+const MID = Math.floor(GY/2);
+
+function drawTangent(alpha, prog=1) {
+  const step=3;
+  const t1=traceSmooth[MID-step], t2=traceSmooth[MID+step], tm=traceSmooth[MID];
+  const p1=iso(t1.gxs,t1.gy,t1.gz), p2=iso(t2.gxs,t2.gy,t2.gz), pm=iso(tm.gxs,tm.gy,tm.gz);
+  ctx.beginPath(); ctx.arc(p1.x,p1.y,4,0,Math.PI*2);
+  ctx.fillStyle=`rgba(99,153,34,${alpha})`; ctx.fill();
+  ctx.beginPath(); ctx.arc(p2.x,p2.y,4,0,Math.PI*2);
+  ctx.fillStyle=`rgba(99,153,34,${alpha})`; ctx.fill();
+  const tx=p1.x+(p2.x-p1.x)*prog, ty=p1.y+(p2.y-p1.y)*prog;
+  ctx.beginPath(); ctx.moveTo(p1.x,p1.y); ctx.lineTo(tx,ty);
+  ctx.strokeStyle=`rgba(99,153,34,${alpha})`; ctx.lineWidth=2.2;
+  ctx.setLineDash([5,3]); ctx.stroke(); ctx.setLineDash([]);
+  if (alpha>0.6 && prog>0.8) {
+    ctx.font='500 11px '+getComputedStyle(document.body).fontFamily;
+    ctx.fillStyle=`rgba(99,153,34,${alpha})`;
+    ctx.fillText('p₁',p1.x+5,p1.y-6); ctx.fillText('p₂',p2.x+5,p2.y-6);
+    ctx.fillText('a = Δrow/Δcol',pm.x-55,pm.y-20);
+  }
+}
+
+function drawPerp(alpha, frac=1) {
+  const step=3;
+  const t1=traceSmooth[MID-step], t2=traceSmooth[MID+step], tm=traceSmooth[MID];
+  const p1=iso(t1.gxs,t1.gy,t1.gz), p2=iso(t2.gxs,t2.gy,t2.gz), pm=iso(tm.gxs,tm.gy,tm.gz);
+  const dx=p2.x-p1.x, dy=p2.y-p1.y, len=Math.sqrt(dx*dx+dy*dy);
+  const nx=-dy/len, ny=dx/len;
+  const lD=62, rD=78;
+  const pL={x:pm.x+nx*lD*frac, y:pm.y+ny*lD*frac};
+  const pR={x:pm.x-nx*rD*frac, y:pm.y-ny*rD*frac};
+  ctx.beginPath(); ctx.moveTo(pm.x,pm.y); ctx.lineTo(pL.x,pL.y);
+  ctx.strokeStyle=`rgba(239,159,39,${alpha})`; ctx.lineWidth=2.2; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(pm.x,pm.y); ctx.lineTo(pR.x,pR.y);
+  ctx.strokeStyle=`rgba(239,159,39,${alpha})`; ctx.lineWidth=2.2; ctx.stroke();
+  if (frac>0.85) {
+    ctx.beginPath(); ctx.arc(pL.x,pL.y,5,0,Math.PI*2);
+    ctx.fillStyle=`rgba(212,83,126,${alpha})`; ctx.fill();
+    ctx.beginPath(); ctx.arc(pR.x,pR.y,5,0,Math.PI*2);
+    ctx.fillStyle=`rgba(212,83,126,${alpha})`; ctx.fill();
+    ctx.font='11px monospace';
+    ctx.fillStyle=`rgba(212,83,126,${alpha})`;
+    ctx.fillText('NaN',pL.x+6,pL.y-5); ctx.fillText('NaN',pR.x+6,pR.y-5);
+    ctx.fillStyle=`rgba(239,159,39,${alpha})`;
+    ctx.fillText('d₁',( pm.x+pL.x)/2-14,(pm.y+pL.y)/2-6);
+    ctx.fillText('d₂',(pm.x+pR.x)/2+4,(pm.y+pR.y)/2-6);
+    ctx.fillText('pente_perp = −1/a',pm.x-50,pm.y+36);
+  }
+}
+
+function drawWidthResult(alpha, prog=1) {
+  const step=3;
+  const t1=traceSmooth[MID-step], t2=traceSmooth[MID+step], tm=traceSmooth[MID];
+  const p1=iso(t1.gxs,t1.gy,t1.gz), p2=iso(t2.gxs,t2.gy,t2.gz), pm=iso(tm.gxs,tm.gy,tm.gz);
+  const dx=p2.x-p1.x, dy=p2.y-p1.y, len=Math.sqrt(dx*dx+dy*dy);
+  const nx=-dy/len, ny=dx/len;
+  const pL={x:pm.x+nx*62, y:pm.y+ny*62}, pR={x:pm.x-nx*78, y:pm.y-ny*78};
+  ctx.beginPath(); ctx.moveTo(pL.x,pL.y); ctx.lineTo(pR.x,pR.y);
+  ctx.strokeStyle=`rgba(255,255,255,${alpha*0.5})`; ctx.lineWidth=1.5;
+  ctx.setLineDash([4,2]); ctx.stroke(); ctx.setLineDash([]);
+  if (prog>0.35) {
+    const bw=188, bh=30, bx=(pL.x+pR.x)/2-bw/2, by=(pL.y+pR.y)/2-48;
+    ctx.fillStyle=`rgba(239,159,39,${alpha*0.93})`;
+    ctx.beginPath(); ctx.roundRect(bx,by,bw,bh,6); ctx.fill();
+    ctx.font='500 12px monospace'; ctx.textAlign='center';
+    ctx.fillStyle=`rgba(65,36,2,${alpha})`;
+    ctx.fillText('(d₁+d₂)×0.2m = 28.4m', bx+bw/2, by+20);
+    ctx.textAlign='left';
+  }
+  if (prog>0.65) {
+    for (let i=4; i<GY-4; i+=5) {
+      if (i===MID) continue;
+      const ta=traceSmooth[Math.max(0,i-3)], tb=traceSmooth[Math.min(GY-1,i+3)], tc=traceSmooth[i];
+      const pa=iso(ta.gxs,ta.gy,ta.gz), pb=iso(tb.gxs,tb.gy,tb.gz), pc=iso(tc.gxs,tc.gy,tc.gz);
+      const ddx=pb.x-pa.x, ddy=pb.y-pa.y, ll=Math.sqrt(ddx*ddx+ddy*ddy);
+      const nnx=-ddy/ll, nny=ddx/ll;
+      ctx.beginPath(); ctx.moveTo(pc.x+nnx*50, pc.y+nny*50); ctx.lineTo(pc.x-nnx*65, pc.y-nny*65);
+      ctx.strokeStyle=`rgba(239,159,39,${alpha*0.3})`; ctx.lineWidth=1; ctx.stroke();
+    }
+    ctx.font='12px monospace'; ctx.fillStyle=`rgba(239,159,39,${alpha})`;
+    ctx.fillText('médiane(N mesures) → map_width', pm.x-85, pm.y+55);
+  }
+}
+
+function drawAxisLabels() {
+  ctx.font='10px monospace'; ctx.fillStyle='rgba(136,146,164,0.6)';
+  const ex=iso(GX,0,0), ey=iso(0,GY,0), o=iso(0,0,0);
+  ctx.beginPath(); ctx.moveTo(o.x,o.y); ctx.lineTo(ex.x,ex.y);
+  ctx.strokeStyle='rgba(255,255,255,0.1)'; ctx.lineWidth=0.7; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(o.x,o.y); ctx.lineTo(ey.x,ey.y); ctx.stroke();
+  ctx.fillText('colonnes →', ex.x-42, ex.y+12);
+  ctx.fillText('lignes →', ey.x-6, ey.y+14);
+}
+
+// Infos des étapes
+const STEPS = [
+  {
+    title: "Surface Bz — la carte magnétique en 3D",
+    desc: "Le drone survole le terrain et enregistre le composant vertical Bz du champ magnétique. Chaque pixel de l'image est une valeur en nanoTesla. Le signal forme un creux centré exactement au-dessus du pipe — c'est le principe physique que toute la méthode exploite.\n\nLes zones roses en bordure sont des NaN : le drone n'a pas survolé ces zones. Ce sont ces NaN qui servent de bornes naturelles pour la mesure de largeur.",
+    code: `# Chargement de la carte magnétique
+arr = np.load('sample.npz')['data'].astype('float32')
+# 4 canaux : Bx, By, Bz, Norme
+bz = arr[:, :, 2]   # canal Bz (index 2)
+
+# Statistiques de base
+valid = bz[np.isfinite(bz)]
+print(f"Bz : min={valid.min():.1f}  max={valid.max():.1f} nT")
+print(f"NaN : {np.isnan(bz).mean()*100:.1f}% des pixels")`
+  },
+  {
+    title: "Profil Bz sur une ligne — détection du creux",
+    desc: "Pour chaque ligne (row) de l'image, on extrait le profil Bz colonne par colonne. Le signal forme un 'V' asymétrique : minimum au-dessus du pipe, puis remontée des deux côtés, puis NaN au bord de la carte de vol.\n\nUn lissage gaussien (σ=3) est appliqué pour éliminer le bruit du capteur avant de chercher le minimum. Le minimum de ce profil lissé donne la position en colonne du pipe sur cette ligne.",
+    code: `# Profil Bz sur une ligne donnée
+profile = bz[row, :]
+valid   = np.isfinite(profile)
+
+# Lissage gaussien pour réduire le bruit
+profile_smooth = gaussian_filter1d(
+    np.where(valid, profile, np.nanmean(profile)),
+    sigma=3.0
+)
+profile_smooth[~valid] = np.nan
+
+# Position du minimum = colonne du pipe
+col_pipe = np.nanargmin(profile_smooth)`
+  },
+  {
+    title: "Trace brute du pipe — minimum Bz ligne par ligne",
+    desc: "On répète l'opération sur toutes les lignes de l'image. On obtient la 'trace brute' : une séquence de colonnes (une par ligne) qui suit approximativement le chemin du tuyau.\n\nLes lignes avec moins de 10 pixels valides sont ignorées (NaN). Sur un pipe courbe, la trace forme une courbe sinusoïdale. Cette trace brute est encore bruitée — des sauts locaux apparaissent dus aux irrégularités du signal.",
+    code: `trace = np.full(H, np.nan)
+
+for row in range(H):
+    profile = bz[row, :]
+    valid   = np.isfinite(profile)
+    # Ignorer lignes avec trop peu de pixels valides
+    if valid.sum() < 10:
+        continue
+    profile_filled = profile.copy()
+    profile_filled[~valid] = np.nanmean(profile)
+    profile_smooth = gaussian_filter1d(profile_filled, sigma=3.0)
+    profile_smooth[~valid] = np.nan
+    trace[row] = np.nanargmin(profile_smooth)`
+  },
+  {
+    title: "Lissage de la trace — moyenne glissante",
+    desc: "La trace brute est bruitée : le minimum peut sauter d'une colonne à l'autre à cause du bruit du capteur magnétique. On applique une moyenne glissante sur une fenêtre de 10 lignes.\n\nLa trace lissée (en jaune) suit beaucoup plus régulièrement le pipe. C'est essentiel pour calculer une tangente stable à chaque point — sans lissage, les perpendiculaires seraient erratiques.",
+    code: `def smooth_trace(trace, window=10):
+    smoothed = trace.copy()
+    valid_rows = np.where(np.isfinite(trace))[0]
+    
+    # Moyenne glissante sur les points valides
+    trace_valid = trace[valid_rows]
+    kernel      = np.ones(window) / window
+    smooth_vals = np.convolve(trace_valid, kernel, mode='same')
+    smoothed[valid_rows] = smooth_vals
+    return smoothed
+
+trace_smooth = smooth_trace(trace, window=10)`
+  },
+  {
+    title: "Tangente locale — approximation différentielle",
+    desc: "On prend deux points voisins sur la trace lissée, espacés de step_rows=5 lignes. La droite qui passe par ces deux points est la tangente locale au pipe.\n\nC'est l'idée clé du calcul différentiel : quand deux points sont suffisamment proches, le segment qui les relie est assimilable à une tangente. Pour un pipe courbe, on obtient une série de tangentes qui 'tournent' progressivement en suivant la courbure.",
+    code: `step_rows = 5
+# Couple de points voisins (r1,c1) et (r2,c2)
+r1, r2 = measure_rows[i], measure_rows[i+1]
+c1, c2 = trace[r1], trace[r2]
+
+# Différence de position (Δrow, Δcol)
+dr = float(r2 - r1)
+dc = float(c2 - c1)
+
+# Pente de la tangente en coordonnées image
+# (row = axe Y, col = axe X)
+if abs(dc) < 1e-8:
+    slope_tangent = 1e8  # pipe quasi-vertical
+else:
+    slope_tangent = dr / dc`
+  },
+  {
+    title: "Perpendiculaire à la tangente — marche vers les NaN",
+    desc: "Deux droites perpendiculaires ont le produit de leurs pentes égal à -1, donc : pente_perp = -1 / pente_tangente.\n\nDepuis le point milieu sur le pipe, on marche pixel par pixel dans les deux directions perpendiculaires avec un pas de 0.5px. À chaque pas, on vérifie si le pixel est NaN (bord de la carte de vol). Le premier NaN rencontré marque la frontière — on enregistre la distance parcourue avant d'arriver au NaN.",
+    code: `# Pente perpendiculaire : produit = -1
+if abs(slope_tangent) < 1e-8:
+    slope_perp = 1e8    # perpendiculaire verticale
+else:
+    slope_perp = -1.0 / slope_tangent
+
+# Vecteur normalisé de la direction perp
+norm = sqrt(1 + slope_perp**2)
+dx   = direction * step / norm
+dy   = direction * slope_perp * step / norm
+
+# Marche jusqu'au bord NaN
+x, y = float(col_mid), float(row_mid)
+while True:
+    xi, yi = int(round(x)), int(round(y))
+    if xi<0 or xi>=W or yi<0 or yi>=H: break
+    if np.isnan(bz[yi, xi]): break   # ← bord trouvé !
+    last_dist = sqrt((x-col)**2 + (y-row)**2)
+    x += dx; y += dy`
+  },
+  {
+    title: "Mesure finale — médiane de toutes les largeurs",
+    desc: "La largeur locale = (distance_gauche + distance_droite) × 0.2 m/px (résolution du drone = 0.2m/pixel). On répète la mesure sur toutes les paires de points espacées de step_rows=5 lignes le long de toute la trace.\n\nLa map_width finale est la MÉDIANE de toutes ces largeurs locales — robuste aux quelques mesures aberrantes (coins de carte, lignes bruitées). Résultat : MAE = 0.61m sur les 51 données réelles, médiane d'erreur = 0.21m.",
+    code: `widths = []
+for i in range(len(measure_rows) - 1):
+    # Mesure perpendiculaire en chaque point
+    dist_pos = walk_perpendicular(bz, row_mid, col_mid,
+                                   slope_perp, direction=+1)
+    dist_neg = walk_perpendicular(bz, row_mid, col_mid,
+                                   slope_perp, direction=-1)
+    w = (dist_pos + dist_neg) * 0.2  # pixels → mètres
+    if w > 0:
+        widths.append(w)
+
+# Médiane = robuste aux outliers
+map_width = float(np.median(widths))
+# ✓ MAE = 0.61m sur données réelles`,
+    metrics: [
+      {label:"MAE réels", val:"0.61m", cls:"good"},
+      {label:"Médiane erreur", val:"0.21m", cls:"good"},
+      {label:"< 1m", val:"92%", cls:"blue"},
+      {label:"< 5m", val:"98%", cls:"blue"},
+    ]
+  }
+];
+
+let currentS = 0, localT = 0, playing = true;
+const STEP_DUR = 320;
+
+function setStep(s) {
+  currentS = Math.max(0, Math.min(STEPS.length-1, s));
+  localT = 0;
+  document.querySelectorAll('.stp').forEach((b,i) => b.classList.toggle('active', i===currentS));
+  const info = STEPS[currentS];
+  document.getElementById('step-number').textContent = `Étape ${currentS+1} / ${STEPS.length}`;
+  document.getElementById('info-title').textContent = info.title;
+  document.getElementById('info-desc').textContent = info.desc;
+  document.getElementById('info-code').textContent = info.code;
+  const mr = document.getElementById('metric-row');
+  if (info.metrics) {
+    mr.style.display = 'grid';
+    mr.innerHTML = info.metrics.map(m =>
+      `<div class="metric"><div class="metric-label">${m.label}</div><div class="metric-val ${m.cls}">${m.val}</div></div>`
+    ).join('');
+  } else {
+    mr.style.display = 'none';
+  }
+}
+setStep(0);
+
+document.querySelectorAll('.stp').forEach(b => b.addEventListener('click', () => {
+  setStep(+b.dataset.s);
+  playing = false;
+  document.getElementById('btn-play').textContent = '▶ Reprendre';
+}));
+
+document.getElementById('btn-play').addEventListener('click', () => {
+  playing = !playing;
+  document.getElementById('btn-play').textContent = playing ? '⏸ Pause' : '▶ Reprendre';
+});
+document.getElementById('btn-prev').addEventListener('click', () => { setStep(currentS-1); playing=true; document.getElementById('btn-play').textContent='⏸ Pause'; });
+document.getElementById('btn-next').addEventListener('click', () => { setStep(currentS+1); playing=true; document.getElementById('btn-play').textContent='⏸ Pause'; });
+
+function render() {
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+  const T = localT / STEP_DUR;
+
+  function a(t0, t1) { return Math.max(0, Math.min(1, (T-t0)/(t1-t0))); }
+
+  switch(currentS) {
+    case 0:
+      drawSurface(easeInOut(Math.min(1,T*1.4)));
+      drawAxisLabels();
+      if (T>0.5) {
+        const aa=easeInOut(Math.min(1,(T-0.5)*3));
+        ctx.font='11px monospace'; ctx.fillStyle=`rgba(55,138,221,${aa})`;
+        const pl=iso(GX/2+8,GY/2,0.2); ctx.fillText('Bz min → pipe',pl.x+4,pl.y-6);
+        ctx.fillStyle=`rgba(183,210,238,${aa})`;
+        const ph=iso(GX/2-14,GY/2,20); ctx.fillText('Bz max',ph.x-20,ph.y-6);
+        ctx.fillStyle=`rgba(212,83,126,${aa})`;
+        const pn=iso(2,GY/2,0); ctx.fillText('NaN',pn.x-4,pn.y);
+      }
+      break;
+    case 1:
+      drawSurface(0.5);
+      drawAxisLabels();
+      const scanRow = Math.floor(Math.min(GY-1, T*GY*1.6));
+      for (let rr=0; rr<=scanRow; rr++) {
+        const aa2 = rr===scanRow ? 1 : Math.max(0,(1-(scanRow-rr)/8)*0.5);
+        if (aa2<0.05) continue;
+        const profile_pts = [];
+        for (let gx=0; gx<GX; gx++) {
+          const v=bz(gx,rr); if(v===null) continue;
+          profile_pts.push({gx,v});
+        }
+        if (profile_pts.length<2) continue;
+        ctx.beginPath();
+        profile_pts.forEach((p,i) => {
+          const pp=iso(p.gx,rr,p.v);
+          i===0 ? ctx.moveTo(pp.x,pp.y) : ctx.lineTo(pp.x,pp.y);
+        });
+        ctx.strokeStyle=`rgba(255,255,255,${aa2*0.8})`; ctx.lineWidth=1.8; ctx.stroke();
+        // Min
+        const rm=traceRaw[rr];
+        const pm2=iso(rm.gx,rr,rm.gz);
+        ctx.beginPath(); ctx.arc(pm2.x,pm2.y,4,0,Math.PI*2);
+        ctx.fillStyle=`rgba(226,75,74,${aa2})`; ctx.fill();
+        if (rr===scanRow && aa2>0.7) {
+          ctx.font='11px monospace'; ctx.fillStyle='rgba(226,75,74,0.9)';
+          ctx.fillText('min Bz',pm2.x+6,pm2.y-6);
+        }
+      }
+      break;
+    case 2:
+      drawSurface(0.42);
+      drawAxisLabels();
+      drawTraceRaw(0.9, Math.min(1,T*1.5));
+      if (T>0.6) {
+        ctx.font='11px monospace'; ctx.fillStyle=`rgba(226,75,74,${easeInOut((T-0.6)*3)})`;
+        const pt=iso(traceRaw[MID].gx,MID,traceRaw[MID].gz);
+        ctx.fillText('trace brute',pt.x+8,pt.y-14);
+      }
+      break;
+    case 3:
+      drawSurface(0.38);
+      drawAxisLabels();
+      drawTraceRaw(0.45);
+      drawTraceSmooth(easeInOut(Math.min(1,T*1.5)), Math.min(1,T*1.8));
+      if (T>0.55) {
+        const aa3=easeInOut(Math.min(1,(T-0.55)*3));
+        ctx.font='11px monospace';
+        const pts=iso(traceSmooth[MID].gxs,MID,traceSmooth[MID].gz);
+        ctx.fillStyle=`rgba(255,208,50,${aa3})`; ctx.fillText('trace lissée',pts.x+8,pts.y-14);
+        ctx.fillStyle=`rgba(226,75,74,${aa3*0.6})`; ctx.fillText('(trace brute)',pts.x+8,pts.y);
+      }
+      break;
+    case 4:
+      drawSurface(0.36);
+      drawAxisLabels();
+      drawTraceSmooth(0.75);
+      drawTangent(easeInOut(Math.min(1,T*2)), easeInOut(Math.min(1,T*2)));
+      break;
+    case 5:
+      drawSurface(0.36);
+      drawAxisLabels();
+      drawTraceSmooth(0.75);
+      drawTangent(0.65,1);
+      drawPerp(easeInOut(Math.min(1,T*2)), easeInOut(Math.min(1,T*1.8)));
+      break;
+    case 6:
+      drawSurface(0.36);
+      drawAxisLabels();
+      drawTraceSmooth(0.75);
+      drawPerp(0.55,1);
+      drawWidthResult(easeInOut(Math.min(1,T*2.5)), easeInOut(Math.min(1,T*2.5)));
+      break;
+  }
+}
+
+function loop() {
+  render();
+  if (playing) {
+    localT++;
+    if (localT > STEP_DUR) {
+      setStep(currentS < STEPS.length-1 ? currentS+1 : 0);
+    }
+  }
+  document.getElementById('prog-fill').style.width = Math.min(100, localT/STEP_DUR*100).toFixed(1)+'%';
+  document.getElementById('time-label').textContent = Math.round((currentS*STEP_DUR+localT)/60)+'s';
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
