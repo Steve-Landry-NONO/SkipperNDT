@@ -6,6 +6,8 @@ Différences vs MagneticMapDataset (classification) :
     - Labels = float (log1p(width_m)) au lieu d'int
     - Même preprocessing image (resize 128×128, zscore par canal, NaN→0)
     - Même augmentation géométrique (flip H/V, rotation 90°)
+
+Auteur(s) : MAKAMTA Linda, KENGNI Theophane, TUEKAM Ludovic, KOUOKAM NONO Steve Landry
 """
 
 import numpy as np

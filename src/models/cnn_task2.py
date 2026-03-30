@@ -9,6 +9,8 @@ Différences vs cnn_task1.py :
 
 Entrée  : (B, 4, 128, 128) float32
 Sortie  : (B, 1) — log1p(width_m) en entraînement, converti en mètres en inférence
+
+Auteur(s) : MAKAMTA Linda, KENGNI Theophane, TUEKAM Ludovic, KOUOKAM NONO Steve Landry
 """
 
 import torch
