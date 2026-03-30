@@ -1,16 +1,18 @@
 """
 task4/inference.py
-Inférence — Tâche 4 : Détection de conduites parallèles.
+
+Inference — Tache 4 : Detection de conduites paralleles.
+
+Classe 1 = deux conduites paralleles
+Classe 0 = conduite unique
 
 Usage :
     python task4/inference.py --input image.npz --model task4/checkpoints/best_model.pt
-    python task4/inference.py --input data/raw/ --model task4/checkpoints/best_model.pt
 
 Sortie JSON :
-    {"parallel_pipelines": 1, "confidence": 0.92, "model": "cnn"}
+    {"parallel_pipelines": 1, "confidence": 0.99, "label": "parallel", "model": "cnn"}
 
-    parallel_pipelines = 1 → 2 conduites parallèles détectées
-    parallel_pipelines = 0 → conduite unique
+Auteur(s) : MAKAMTA Linda
 """
 
 import argparse
@@ -54,7 +56,7 @@ def predict_cnn(npz_path: Path, model_path: Path) -> dict:
         import torch
         import torch.nn.functional as F
     except ImportError:
-        print("[!] PyTorch requis")
+        print("PyTorch requis")
         return {}
 
     from src.models.dataset import resize_array, normalize_channels
@@ -89,23 +91,23 @@ def predict_cnn(npz_path: Path, model_path: Path) -> dict:
 def run_inference(input_path: Path, model_path: Path) -> list:
     use_cnn = model_path.suffix == ".pt"
     files   = sorted(input_path.rglob("*.npz")) if input_path.is_dir() else [input_path]
-
     results = []
+
     for f in files:
         try:
-            r = predict_cnn(f, model_path) if use_cnn else predict_baseline(f, model_path)
-            results.append(r)
+            r     = predict_cnn(f, model_path) if use_cnn else predict_baseline(f, model_path)
             label = "PARALLEL" if r["parallel_pipelines"] == 1 else "SINGLE  "
             conf  = f"{r['confidence']*100:.1f}%" if r.get("confidence") else "N/A"
-            print(f"  {f.name:<55} → {label} (conf: {conf})")
+            print(f"  {f.name:<55} -> {label} (conf: {conf})")
+            results.append(r)
         except Exception as e:
-            print(f"  [!] Erreur sur {f.name}: {e}")
+            print(f"  erreur sur {f.name}: {e}")
 
     return results
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Inférence — Tâche 4 : parallel_pipelines")
+    parser = argparse.ArgumentParser(description="Inference — Tache 4 : parallel_pipelines")
     parser.add_argument("--input",  required=True)
     parser.add_argument("--model",  required=True)
     parser.add_argument("--output", default=None)
@@ -115,25 +117,27 @@ def main():
     model_path = Path(args.model)
 
     if not input_path.exists():
-        print(f"[!] Introuvable : {input_path}"); sys.exit(1)
+        print(f"introuvable : {input_path}")
+        sys.exit(1)
     if not model_path.exists():
-        print(f"[!] Modèle introuvable : {model_path}"); sys.exit(1)
+        print(f"modele introuvable : {model_path}")
+        sys.exit(1)
 
-    print(f"\n🔍 Inférence — Tâche 4 : parallel_pipelines")
-    print(f"   Input : {input_path}")
-    print(f"   Modèle: {model_path}\n")
+    print(f"\n  inference — Tache 4 : parallel_pipelines")
+    print(f"  input  : {input_path}")
+    print(f"  modele : {model_path}\n")
 
     results  = run_inference(input_path, model_path)
     parallel = sum(1 for r in results if r["parallel_pipelines"] == 1)
     single   = sum(1 for r in results if r["parallel_pipelines"] == 0)
-    print(f"\n  📊 Résultat : {parallel} PARALLEL | {single} SINGLE sur {len(results)} images")
+    print(f"\n  {parallel} PARALLEL | {single} SINGLE sur {len(results)} images")
 
     if args.output:
         out = Path(args.output)
         out.parent.mkdir(parents=True, exist_ok=True)
         with open(out, "w") as f:
             json.dump(results if len(results) > 1 else results[0], f, indent=2)
-        print(f"  ✓ Résultats sauvegardés : {out}")
+        print(f"  resultats sauvegardes : {out}")
     elif len(results) == 1:
         print(f"\n{json.dumps(results[0], indent=2)}")
 
