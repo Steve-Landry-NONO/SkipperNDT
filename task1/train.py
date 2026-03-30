@@ -1,25 +1,26 @@
 """
 task1/train.py
-Entraînement — Tâche 1 : Détection de présence de conduite (pipe_present).
+
+Entrainement — Tache 1 : Detection de presence de conduite (pipe_present).
+
+Deux modes disponibles :
+    baseline  : SVM/RF sur 39 features statistiques (pas de GPU requis)
+    cnn       : MagCNN ou MagDenseNet (PyTorch)
+
+Score SKIPPER T1 : 60% Accuracy + 40% Recall (objectifs : Acc > 92%, Recall > 95%)
 
 Usage :
-    # Baseline ML (SVM/RF sur features statistiques) — rapide, pas de GPU requis
     python task1/train.py --mode baseline --data_dir data/raw
-
-    # CNN léger
-    python task1/train.py --mode cnn --model cnn --data_dir data/raw
-
-    # DenseNet (meilleur résultat attendu)
-    python task1/train.py --mode cnn --model densenet --data_dir data/raw
-
-    # Options supplémentaires
-    python task1/train.py --mode cnn --model cnn --epochs 50 --batch_size 16 --lr 1e-3
+    python task1/train.py --mode cnn --model cnn --epochs 50 --batch_size 16
+    python task1/train.py --mode cnn --model densenet --epochs 50 --batch_size 16
 
 Sorties :
-    task1/checkpoints/best_model.pt     ← meilleur checkpoint (val_loss)
-    task1/checkpoints/last_model.pt     ← dernier checkpoint
-    task1/results/metrics.json          ← métriques finales
-    task1/results/baseline_results.json ← résultats baseline ML (si --mode baseline)
+    task1/checkpoints/best_model.pt      meilleur checkpoint (val_loss)
+    task1/checkpoints/last_model.pt      dernier checkpoint
+    task1/results/metrics.json           metriques finales
+    task1/results/baseline_results.json  resultats baseline ML
+
+Auteur(s) : KOUOKAM NONO Steve Landry
 """
 
 import argparse
@@ -38,13 +39,15 @@ from src.preprocessing.features import extract_features_batch, N_FEATURES, FEATU
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PARTIE 1 : BASELINE ML (SVM / Random Forest)
+# Baseline ML
 # ─────────────────────────────────────────────────────────────────────────────
 
 def run_baseline(data_dir: Path, out_dir: Path) -> dict:
     """
-    Baseline ML sur features statistiques (39 features × image).
-    Pas de GPU requis. Sert de référence pour le CNN.
+    Baseline ML par cross-validation 5-fold sur features statistiques (39 dim).
+
+    Le meilleur modele est reentraine sur 100% des donnees et sauvegarde
+    au format pickle dans out_dir/baseline_best.pkl.
     """
     from sklearn.svm import SVC
     from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
@@ -54,22 +57,20 @@ def run_baseline(data_dir: Path, out_dir: Path) -> dict:
     from sklearn.pipeline import Pipeline
     import pickle
 
-    print("\n" + "="*60)
-    print("  BASELINE ML — Tâche 1 : pipe_present")
-    print("="*60)
+    print(f"\n{'='*60}")
+    print(f"  Baseline ML — Tache 1 : pipe_present")
+    print(f"{'='*60}")
 
-    # ── Chargement des données ─────────────────────────────────
-    print("\n📂 Construction du catalogue...")
+    print("\n  construction du catalogue...")
     catalog = DatasetCatalog(data_dir, verbose=False)
     paths, labels = catalog.get_paths_and_labels("t1")
     print(f"  {len(paths)} fichiers | pipe={sum(labels)} | no_pipe={len(labels)-sum(labels)}")
 
-    print("\n⚙️  Extraction des features (peut prendre ~5 min pour 2000+ fichiers)...")
+    print("\n  extraction des features (peut prendre ~5 min pour 2000+ fichiers)...")
     t0 = time.time()
     X, y = extract_features_batch(paths, labels, verbose=True)
-    print(f"  ✓ {X.shape} features extraites en {time.time()-t0:.0f}s")
+    print(f"  {X.shape} features extraites en {time.time()-t0:.0f}s")
 
-    # ── Modèles à évaluer ─────────────────────────────────────
     scorers = {
         "accuracy": "accuracy",
         "recall":   make_scorer(recall_score, pos_label=1),
@@ -88,24 +89,22 @@ def run_baseline(data_dir: Path, out_dir: Path) -> dict:
         "RandomForest": Pipeline([
             ("scaler", StandardScaler()),
             ("clf",    RandomForestClassifier(
-                n_estimators=200, max_depth=None,
-                class_weight="balanced", n_jobs=-1, random_state=42
+                n_estimators=200, class_weight="balanced", n_jobs=-1, random_state=42
             )),
         ]),
         "GradientBoosting": Pipeline([
             ("scaler", StandardScaler()),
             ("clf",    GradientBoostingClassifier(
-                n_estimators=200, learning_rate=0.05,
-                max_depth=4, random_state=42
+                n_estimators=200, learning_rate=0.05, max_depth=4, random_state=42
             )),
         ]),
     }
 
-    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    cv      = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
     results = {}
 
-    print("\n📊 Évaluation par cross-validation (5 folds)...\n")
-    print(f"  {'Modèle':<22} {'Accuracy':>10} {'Recall':>10} {'F1':>10}")
+    print(f"\n  evaluation cross-validation (5 folds)\n")
+    print(f"  {'Modele':<22} {'Accuracy':>10} {'Recall':>10} {'F1':>10}")
     print("  " + "-"*52)
 
     best_score = 0.0
@@ -113,87 +112,93 @@ def run_baseline(data_dir: Path, out_dir: Path) -> dict:
     best_pipe  = None
 
     for name, pipe in models.items():
-        t0 = time.time()
+        t0     = time.time()
         cv_res = cross_validate(pipe, X, y, cv=cv, scoring=scorers, n_jobs=-1)
         acc    = cv_res["test_accuracy"].mean()
         rec    = cv_res["test_recall"].mean()
         f1     = cv_res["test_f1"].mean()
         elapsed = time.time() - t0
 
-        # Score SKIPPER : 60% Accuracy + 40% Recall
         skipper_score = 0.6 * acc + 0.4 * rec
-
         results[name] = {
-            "accuracy": float(acc),
-            "recall":   float(rec),
-            "f1":       float(f1),
+            "accuracy":      float(acc),
+            "recall":        float(rec),
+            "f1":            float(f1),
             "skipper_score": float(skipper_score),
-            "time_s":   float(elapsed),
+            "time_s":        float(elapsed),
         }
 
-        ok_acc = "✓" if acc >= 0.92 else "✗"
-        ok_rec = "✓" if rec >= 0.95 else "✗"
-        print(f"  {name:<22} {acc*100:>8.1f}%{ok_acc} {rec*100:>8.1f}%{ok_rec} {f1*100:>8.1f}%"
-              f"  [SKIPPER={skipper_score*100:.1f}%] ({elapsed:.0f}s)")
+        ok_acc = "ok" if acc >= 0.92 else "x"
+        ok_rec = "ok" if rec >= 0.95 else "x"
+        print(f"  {name:<22} {acc*100:>8.1f}% {ok_acc} {rec*100:>8.1f}% {ok_rec} "
+              f"{f1*100:>8.1f}%  [SKIPPER={skipper_score*100:.1f}%] ({elapsed:.0f}s)")
 
         if skipper_score > best_score:
             best_score = skipper_score
             best_name  = name
             best_pipe  = pipe
 
-    # ── Ré-entraîner le meilleur modèle sur tout le dataset ───
-    print(f"\n🏆 Meilleur modèle : {best_name} (score SKIPPER = {best_score*100:.1f}%)")
-    print(f"   Objectifs SKIPPER : Accuracy ≥ 92% | Recall ≥ 95%")
+    print(f"\n  meilleur modele : {best_name} (score SKIPPER = {best_score*100:.1f}%)")
+    print(f"  objectifs : Accuracy >= 92% | Recall >= 95%")
 
-    print(f"\n💾 Entraînement final sur 100% des données...")
+    print(f"\n  entrainement final sur 100% des donnees...")
     best_pipe.fit(X, y)
 
-    # Sauvegarde
     out_dir.mkdir(parents=True, exist_ok=True)
     model_path = out_dir / "baseline_best.pkl"
     with open(model_path, "wb") as f:
-        pickle.dump({"model": best_pipe, "scaler_inside": True,
-                     "feature_names": FEATURE_NAMES, "n_features": N_FEATURES}, f)
-    print(f"   ✓ Modèle sauvegardé : {model_path}")
+        pickle.dump({
+            "model":          best_pipe,
+            "scaler_inside":  True,
+            "feature_names":  FEATURE_NAMES,
+            "n_features":     N_FEATURES,
+        }, f)
+    print(f"  modele sauvegarde : {model_path}")
 
-    # Rapport final
     y_pred = best_pipe.predict(X)
-    print(f"\n📋 Rapport (train complet, pour vérification) :\n")
+    print(f"\n  rapport (train complet, verification) :\n")
     print(classification_report(y, y_pred, target_names=["no_pipe", "pipe"]))
 
-    # Sauvegarde JSON
-    summary = {"best_model": best_name, "best_skipper_score": float(best_score), "models": results}
+    summary = {
+        "best_model":       best_name,
+        "best_skipper_score": float(best_score),
+        "models":           results,
+    }
     with open(out_dir / "baseline_results.json", "w") as f:
         json.dump(summary, f, indent=2)
-    print(f"   ✓ Résultats : {out_dir / 'baseline_results.json'}")
+    print(f"  resultats : {out_dir / 'baseline_results.json'}")
 
     return summary
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PARTIE 2 : CNN (MagCNN ou MagDenseNet)
+# CNN
 # ─────────────────────────────────────────────────────────────────────────────
 
 def run_cnn(
     data_dir:   Path,
     out_dir:    Path,
-    model_name: str  = "cnn",
-    epochs:     int  = 50,
-    batch_size: int  = 16,
+    model_name: str   = "cnn",
+    epochs:     int   = 50,
+    batch_size: int   = 16,
     lr:         float = 1e-3,
     val_split:  float = 0.2,
 ) -> dict:
     """
-    Entraînement CNN pour la Tâche 1.
-    Nécessite PyTorch.
+    Entrainement CNN pour la Tache 1.
+
+    La loss CrossEntropy est ponderee par les frequences inverses des classes
+    pour compenser le desequilibre pipe/no_pipe.
+    L'early stopping est base sur la val_loss (patience=10 epochs).
+    Le meilleur checkpoint est sauvegarde dans out_dir/best_model.pt.
     """
     try:
         import torch
         import torch.nn as nn
-        from torch.utils.data import DataLoader, Subset
+        from torch.utils.data import DataLoader
         from sklearn.model_selection import train_test_split
     except ImportError:
-        print("[!] PyTorch non disponible. Installez-le : pip install torch")
+        print("PyTorch non disponible.")
         return {}
 
     from src.models.dataset import MagneticMapDataset
@@ -201,82 +206,76 @@ def run_cnn(
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"\n{'='*60}")
-    print(f"  CNN — Tâche 1 : pipe_present | modèle: {model_name}")
-    print(f"  Device: {device}")
+    print(f"  CNN — Tache 1 : pipe_present | modele: {model_name}")
+    print(f"  device: {device}")
     print(f"{'='*60}")
 
-    # ── Données ───────────────────────────────────────────────
     catalog = DatasetCatalog(data_dir, verbose=False)
     paths, labels = catalog.get_paths_and_labels("t1")
-    print(f"\n  Dataset : {len(paths)} fichiers | pipe={sum(labels)} | no_pipe={len(labels)-sum(labels)}")
+    print(f"\n  {len(paths)} fichiers | pipe={sum(labels)} | no_pipe={len(labels)-sum(labels)}")
 
     idx_train, idx_val = train_test_split(
-        range(len(paths)), test_size=val_split,
-        stratify=labels, random_state=42
+        range(len(paths)), test_size=val_split, stratify=labels, random_state=42
     )
 
-    train_paths  = [paths[i]  for i in idx_train]
-    train_labels = [labels[i] for i in idx_train]
-    val_paths    = [paths[i]  for i in idx_val]
-    val_labels   = [labels[i] for i in idx_val]
+    train_ds = MagneticMapDataset(
+        [paths[i] for i in idx_train], [labels[i] for i in idx_train], augment=True
+    )
+    val_ds = MagneticMapDataset(
+        [paths[i] for i in idx_val], [labels[i] for i in idx_val], augment=False
+    )
 
-    train_ds = MagneticMapDataset(train_paths, train_labels, augment=True)
-    val_ds   = MagneticMapDataset(val_paths,   val_labels,   augment=False)
+    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True,
+                              num_workers=2, pin_memory=True)
+    val_loader   = DataLoader(val_ds,   batch_size=batch_size, shuffle=False,
+                              num_workers=2, pin_memory=True)
 
-    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True,  num_workers=2, pin_memory=True)
-    val_loader   = DataLoader(val_ds,   batch_size=batch_size, shuffle=False, num_workers=2, pin_memory=True)
+    print(f"  train: {len(train_ds)} | val: {len(val_ds)}")
 
-    print(f"  Train: {len(train_ds)} | Val: {len(val_ds)}")
+    model     = get_model(model_name).to(device)
+    print(f"  parametres : {count_params(model):,}")
 
-    # ── Modèle ────────────────────────────────────────────────
-    model = get_model(model_name).to(device)
-    print(f"  Paramètres : {count_params(model):,}")
-
-    # Loss avec pondération classe (déséquilibre ~60/40)
-    class_w = train_ds.class_weights().to(device)
+    class_w   = train_ds.class_weights().to(device)
     criterion = nn.CrossEntropyLoss(weight=class_w)
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 
-    # ── Boucle d'entraînement ─────────────────────────────────
     out_dir.mkdir(parents=True, exist_ok=True)
-    best_val_loss = float("inf")
+    best_val_loss    = float("inf")
     patience_counter = 0
-    patience = 10   # early stopping
-    history = []
+    patience         = 10
+    history          = []
 
-    print(f"\n{'Epoch':>6} {'Train Loss':>12} {'Val Loss':>10} {'Val Acc':>9} {'Val Rec':>9} {'LR':>10}")
+    print(f"\n{'Epoch':>6} {'Train Loss':>12} {'Val Loss':>10} {'Val Acc':>9} "
+          f"{'Val Rec':>9} {'LR':>10}")
     print("-" * 62)
 
     for epoch in range(1, epochs + 1):
-        # ── Train ──
         model.train()
         train_loss = 0.0
         for x, y_batch in train_loader:
             x, y_batch = x.to(device), y_batch.to(device)
             optimizer.zero_grad()
-            logits = model(x)
-            loss = criterion(logits, y_batch)
+            loss = criterion(model(x), y_batch)
             loss.backward()
             nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
             train_loss += loss.item() * len(x)
         train_loss /= len(train_ds)
 
-        # ── Validation ──
         model.eval()
-        val_loss = 0.0
-        all_preds, all_labels = [], []
+        val_loss   = 0.0
+        all_preds  = []
+        all_labels = []
         with torch.no_grad():
             for x, y_batch in val_loader:
                 x, y_batch = x.to(device), y_batch.to(device)
-                logits = model(x)
-                val_loss += criterion(logits, y_batch).item() * len(x)
-                preds = logits.argmax(dim=1)
-                all_preds.extend(preds.cpu().numpy())
+                logits     = model(x)
+                val_loss  += criterion(logits, y_batch).item() * len(x)
+                all_preds.extend(logits.argmax(dim=1).cpu().numpy())
                 all_labels.extend(y_batch.cpu().numpy())
 
-        val_loss /= len(val_ds)
+        val_loss  /= len(val_ds)
         all_preds  = np.array(all_preds)
         all_labels = np.array(all_labels)
 
@@ -293,63 +292,52 @@ def run_cnn(
             "val_acc": float(acc), "val_recall": float(rec),
         })
 
-        print(f"{epoch:>6} {train_loss:>12.4f} {val_loss:>10.4f} {acc*100:>8.1f}% {rec*100:>8.1f}% {current_lr:>10.6f}")
+        print(f"{epoch:>6} {train_loss:>12.4f} {val_loss:>10.4f} "
+              f"{acc*100:>8.1f}% {rec*100:>8.1f}% {current_lr:>10.6f}")
 
-        # ── Early stopping + sauvegarde ──
         if val_loss < best_val_loss:
-            best_val_loss = val_loss
+            best_val_loss    = val_loss
             patience_counter = 0
             torch.save({
-                "epoch": epoch,
-                "model_state": model.state_dict(),
+                "epoch": epoch, "model_state": model.state_dict(),
                 "optimizer_state": optimizer.state_dict(),
-                "val_loss": val_loss,
-                "val_acc": float(acc),
-                "val_recall": float(rec),
+                "val_loss": val_loss, "val_acc": float(acc), "val_recall": float(rec),
                 "model_name": model_name,
             }, out_dir / "best_model.pt")
-            print(f"         ↑ Meilleur modèle sauvegardé (val_loss={val_loss:.4f})")
+            print(f"         meilleur modele sauvegarde (val_loss={val_loss:.4f})")
         else:
             patience_counter += 1
             if patience_counter >= patience:
-                print(f"\n⏹  Early stopping à l'epoch {epoch} (patience={patience})")
+                print(f"\n  early stopping epoch {epoch} (patience={patience})")
                 break
 
-    # ── Sauvegarde finale ──────────────────────────────────────
     torch.save({"epoch": epoch, "model_state": model.state_dict()}, out_dir / "last_model.pt")
 
     results = {
-        "model": model_name,
-        "best_val_loss": float(best_val_loss),
-        "best_val_acc":  float(max(h["val_acc"]    for h in history)),
-        "best_val_rec":  float(max(h["val_recall"] for h in history)),
+        "model":          model_name,
+        "best_val_loss":  float(best_val_loss),
+        "best_val_acc":   float(max(h["val_acc"]    for h in history)),
+        "best_val_rec":   float(max(h["val_recall"] for h in history)),
         "epochs_trained": epoch,
-        "history": history,
+        "history":        history,
     }
 
     with open(out_dir / "metrics.json", "w") as f:
         json.dump(results, f, indent=2)
 
-    print(f"\n✅ Entraînement terminé")
-    print(f"   Best val_acc    : {results['best_val_acc']*100:.1f}%  (objectif: 92%)")
-    print(f"   Best val_recall : {results['best_val_rec']*100:.1f}%  (objectif: 95%)")
-    print(f"   Checkpoints     : {out_dir}")
+    print(f"\n  best val_acc    : {results['best_val_acc']*100:.1f}%  (objectif: 92%)")
+    print(f"  best val_recall : {results['best_val_rec']*100:.1f}%  (objectif: 95%)")
+    print(f"  checkpoints     : {out_dir}")
 
     return results
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# CLI
-# ─────────────────────────────────────────────────────────────────────────────
-
 def main():
-    parser = argparse.ArgumentParser(description="Train — Tâche 1 : pipe_present")
+    parser = argparse.ArgumentParser(description="Train — Tache 1 : pipe_present")
     parser.add_argument("--mode",       type=str, default="baseline",
-                        choices=["baseline", "cnn"],
-                        help="'baseline' = SVM/RF | 'cnn' = réseau de neurones")
+                        choices=["baseline", "cnn"])
     parser.add_argument("--model",      type=str, default="cnn",
-                        choices=["cnn", "densenet"],
-                        help="Architecture CNN (ignoré en mode baseline)")
+                        choices=["cnn", "densenet"])
     parser.add_argument("--data_dir",   type=str, default="data/raw")
     parser.add_argument("--out_dir",    type=str, default="task1/checkpoints")
     parser.add_argument("--epochs",     type=int,   default=50)
@@ -362,8 +350,7 @@ def main():
     out_dir  = ROOT / args.out_dir
 
     if args.mode == "baseline":
-        out_dir = ROOT / "task1/results"
-        run_baseline(data_dir, out_dir)
+        run_baseline(data_dir, ROOT / "task1/results")
     else:
         run_cnn(
             data_dir, out_dir,
