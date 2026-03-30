@@ -1,0 +1,268 @@
+{
+  "T1_pipe_present": {
+    "PCA+KNN": {
+      "accuracy": 0.9863713798977853,
+      "precision": 0.997093023255814,
+      "recall": 0.98,
+      "f1": 0.9884726224783862,
+      "model_size_mb": 0.394,
+      "inference_ms": 2.164,
+      "train_time_s": 0.01,
+      "iot_ready": true,
+      "n_components_pca": 39,
+      "val_real": {
+        "accuracy": 0.8235294117647058,
+        "precision": 0.746268656716418,
+        "recall": 0.9803921568627451,
+        "f1": 0.847457627118644
+      },
+      "skipper_score_real": 0.8863,
+      "skipper_score_val": 0.9838
+    },
+    "PCA+SVM": {
+      "accuracy": 0.9931856899488927,
+      "precision": 0.9914772727272727,
+      "recall": 0.9971428571428571,
+      "f1": 0.9943019943019943,
+      "model_size_mb": 0.089,
+      "inference_ms": 0.298,
+      "train_time_s": 0.28,
+      "iot_ready": true,
+      "n_components_pca": 39,
+      "val_real": {
+        "accuracy": 0.9705882352941176,
+        "precision": 0.9615384615384616,
+        "recall": 0.9803921568627451,
+        "f1": 0.970873786407767
+      },
+      "skipper_score_real": 0.9745,
+      "skipper_score_val": 0.9948
+    },
+    "PCA+LDA": {
+      "accuracy": 0.9829642248722317,
+      "precision": 0.9722222222222222,
+      "recall": 1.0,
+      "f1": 0.9859154929577465,
+      "model_size_mb": 0.01,
+      "inference_ms": 0.43,
+      "train_time_s": 0.01,
+      "iot_ready": true,
+      "n_components_pca": 39,
+      "val_real": {
+        "accuracy": 0.5490196078431373,
+        "precision": 0.5257731958762887,
+        "recall": 1.0,
+        "f1": 0.6891891891891891
+      },
+      "skipper_score_real": 0.7294,
+      "skipper_score_val": 0.9898
+    },
+    "PCA+LR": {
+      "accuracy": 0.9931856899488927,
+      "precision": 0.9887005649717514,
+      "recall": 1.0,
+      "f1": 0.9943181818181818,
+      "model_size_mb": 0.01,
+      "inference_ms": 0.246,
+      "train_time_s": 3.94,
+      "iot_ready": true,
+      "n_components_pca": 39,
+      "val_real": {
+        "accuracy": 0.7647058823529411,
+        "precision": 0.68,
+        "recall": 1.0,
+        "f1": 0.8095238095238095
+      },
+      "skipper_score_real": 0.8588,
+      "skipper_score_val": 0.9959
+    },
+    "MagCNN": {
+      "val_synthetic": {
+        "accuracy": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "val_real": {
+        "accuracy": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "model_size_mb": 1.71,
+      "inference_ms": 7.32,
+      "n_params": 422818,
+      "train_time_s": 6144.1,
+      "iot_ready": true,
+      "skipper_score_real": 1.0
+    }
+  },
+  "T2_map_width": {
+    "Features+GradientBoosting": {
+      "mae_val_m": 7.51,
+      "mae_real_m": 13.95,
+      "model_size_mb": 0.252,
+      "inference_ms": 0.27,
+      "train_time_s": 0.7,
+      "iot_ready": true,
+      "requires_training": true
+    },
+    "PCA_geometrique": {
+      "mae_real_m": 1.39,
+      "median_err_m": 0.29,
+      "model_size_mb": 0.0,
+      "inference_ms": 4.8,
+      "train_time_s": 0.0,
+      "iot_ready": true,
+      "requires_training": false,
+      "note": "direction principale via PCA, scan perp. jusqu'aux NaN"
+    },
+    "Algo_geometrique_trace": {
+      "mae_real_m": 0.61,
+      "median_err_m": 0.21,
+      "pct_under_1m": 92.2,
+      "pct_under_5m": 98.0,
+      "model_size_mb": 0.0,
+      "inference_ms": 94.9,
+      "train_time_s": 0.0,
+      "iot_ready": true,
+      "requires_training": false,
+      "note": "trace Bz minimum + tangente locale + perp. vers NaN"
+    },
+    "MagCNN_regression": {
+      "mae_val_synth_m": 8.32,
+      "mae_real_m": 9.89,
+      "model_size_mb": 1.7,
+      "inference_ms": null,
+      "train_time_s": null,
+      "iot_ready": true,
+      "requires_training": true,
+      "note": "plateau MAE ~8-9m \u2014 map_width non appris par stats signal"
+    }
+  },
+  "T3_current_sufficient": {
+    "PCA+KNN": {
+      "accuracy": 0.7107583774250441,
+      "precision": 0.7890818858560794,
+      "recall": 0.801007556675063,
+      "f1": 0.795,
+      "model_size_mb": 0.381,
+      "inference_ms": 2.039,
+      "train_time_s": 0.0,
+      "iot_ready": true,
+      "n_components_pca": 39,
+      "skipper_score": 0.7378
+    },
+    "PCA+SVM": {
+      "accuracy": 0.7883597883597884,
+      "precision": 0.8857938718662952,
+      "recall": 0.801007556675063,
+      "f1": 0.8412698412698413,
+      "model_size_mb": 0.336,
+      "inference_ms": 0.297,
+      "train_time_s": 0.76,
+      "iot_ready": true,
+      "n_components_pca": 39,
+      "skipper_score": 0.7922
+    },
+    "PCA+LDA": {
+      "accuracy": 0.7601410934744268,
+      "precision": 0.8222222222222222,
+      "recall": 0.8387909319899244,
+      "f1": 0.830423940149626,
+      "model_size_mb": 0.01,
+      "inference_ms": 0.657,
+      "train_time_s": 0.01,
+      "iot_ready": true,
+      "n_components_pca": 39,
+      "skipper_score": 0.7837
+    },
+    "PCA+LR": {
+      "accuracy": 0.7354497354497355,
+      "precision": 0.9523809523809523,
+      "recall": 0.654911838790932,
+      "f1": 0.7761194029850746,
+      "model_size_mb": 0.01,
+      "inference_ms": 0.301,
+      "train_time_s": 3.66,
+      "iot_ready": true,
+      "n_components_pca": 39,
+      "skipper_score": 0.7113
+    },
+    "MagCNN": {
+      "val_synthetic": {
+        "accuracy": 0.9576719576719577,
+        "precision": 0.989501312335958,
+        "recall": 0.9496221662468514,
+        "f1": 0.9691516709511568
+      },
+      "val_real": {},
+      "model_size_mb": 1.71,
+      "inference_ms": 7.1,
+      "n_params": 422818,
+      "train_time_s": 6083.1,
+      "iot_ready": true,
+      "skipper_score": 0.9553
+    }
+  },
+  "T4_parallel_pipelines": {
+    "PCA+KNN": {
+      "accuracy": 0.9323529411764706,
+      "precision": 0.9753086419753086,
+      "recall": 0.79,
+      "f1": 0.8729281767955801,
+      "model_size_mb": 0.232,
+      "inference_ms": 0.833,
+      "train_time_s": 0.0,
+      "iot_ready": true,
+      "n_components_pca": 39
+    },
+    "PCA+SVM": {
+      "accuracy": 0.9735294117647059,
+      "precision": 0.9595959595959596,
+      "recall": 0.95,
+      "f1": 0.9547738693467337,
+      "model_size_mb": 0.104,
+      "inference_ms": 0.16,
+      "train_time_s": 0.1,
+      "iot_ready": true,
+      "n_components_pca": 39
+    },
+    "PCA+LDA": {
+      "accuracy": 0.9647058823529412,
+      "precision": 0.94,
+      "recall": 0.94,
+      "f1": 0.94,
+      "model_size_mb": 0.01,
+      "inference_ms": 0.166,
+      "train_time_s": 0.0,
+      "iot_ready": true,
+      "n_components_pca": 39
+    },
+    "PCA+LR": {
+      "accuracy": 0.9735294117647059,
+      "precision": 0.9252336448598131,
+      "recall": 0.99,
+      "f1": 0.9565217391304348,
+      "model_size_mb": 0.01,
+      "inference_ms": 0.111,
+      "train_time_s": 2.35,
+      "iot_ready": true,
+      "n_components_pca": 39
+    },
+    "MagCNN": {
+      "val_synthetic": {
+        "accuracy": 0.9970588235294118,
+        "precision": 0.9900990099009901,
+        "recall": 1.0,
+        "f1": 0.9950248756218906
+      },
+      "val_real": {},
+      "model_size_mb": 1.71,
+      "inference_ms": 3.28,
+      "n_params": 422818,
+      "train_time_s": 2441.1,
+      "iot_ready": true
+    }
+  }
+}
