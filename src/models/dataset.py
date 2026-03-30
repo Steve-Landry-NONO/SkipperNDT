@@ -1,19 +1,19 @@
 """
 src/models/dataset.py
-Dataset PyTorch pour les cartes magnétiques — Tâche 1 (pipe_present).
 
-Stratégie de resize : Global Average Pooling spatial → patch fixe 128×128
-  - Les images vont de 150×150 à 4000×3750 → impossible de passer tout en mémoire
-  - On redimensionne à 128×128 (PIL BILINEAR, NaN ignorés)
-  - Alternative pour grandes images : patch central + random crop en train
+Dataset PyTorch pour les cartes magnetiques 4 canaux — Tache 1 (pipe_present).
 
-Normalisation : zscore individuelle par canal sur les pixels valides.
-Les NaN sont remplacés par 0.0 après normalisation (valeur neutre).
+Les images varient de 150x150 a 4000x3750 pixels. Elles sont redimensionnees
+a 128x128 (zoom scipy bilineaire) avant d'etre passees au reseau. Cette resolution
+est un compromis entre cout memoire et preservation des structures dipole.
 
-Augmentation (train seulement) :
-  - Flip horizontal / vertical aléatoire
-  - Rotation 90° aléatoire
-  - Pas de bruit ajouté ici (domain gap déjà important)
+Normalisation : zscore individuelle par canal sur les pixels valides. Les NaN sont
+remplaces par 0.0 apres normalisation — valeur neutre dans l'espace zscore.
+
+Augmentation (train uniquement) : flip horizontal/vertical aleatoire + rotation 90.
+Pas de bruit ajoute car le domain gap synth->reel est deja significatif.
+
+Auteur(s) : MAKAMTA Linda, KENGNI Theophane, TUEKAM Ludovic, KOUOKAM NONO Steve Landry
 """
 
 import numpy as np
@@ -21,20 +21,29 @@ try:
     import torch
     from torch.utils.data import Dataset
 except ImportError:
-    torch = None
+    torch   = None
     Dataset = object
 from pathlib import Path
-from typing import Optional, Callable
+from typing import Optional
 import random
 
 
-TARGET_SIZE = 128   # px — compromis mémoire / résolution
+TARGET_SIZE = 128
 
 
 def resize_array(arr: np.ndarray, size: int = TARGET_SIZE) -> np.ndarray:
     """
-    Redimensionne une image (H, W, 4) à (size, size, 4) en ignorant les NaN.
-    Utilise une interpolation bilinéaire via numpy (pas de dépendance PIL/cv2).
+    Redimensionne (H, W, 4) vers (size, size, 4) via interpolation bilineaire.
+
+    Les NaN sont masques avant le zoom puis re-appliques apres pour ne pas
+    propager de valeurs interpolees invalides.
+
+    Args:
+        arr  : array (H, W, 4) float32
+        size : taille cible (carre)
+
+    Returns:
+        array (size, size, 4) float32
     """
     from scipy.ndimage import zoom
 
@@ -42,17 +51,13 @@ def resize_array(arr: np.ndarray, size: int = TARGET_SIZE) -> np.ndarray:
     if h == size and w == size:
         return arr
 
-    # Masquer les NaN temporairement
     out = np.zeros((size, size, 4), dtype=np.float32)
     for c in range(4):
-        ch = arr[:, :, c].copy()
+        ch       = arr[:, :, c].copy()
         nan_mask = np.isnan(ch)
         ch[nan_mask] = 0.0
-        zoom_h = size / h
-        zoom_w = size / w
-        ch_resized = zoom(ch, (zoom_h, zoom_w), order=1)  # bilinear
-        # Propager le masque NaN
-        mask_resized = zoom(nan_mask.astype(np.float32), (zoom_h, zoom_w), order=0)
+        ch_resized   = zoom(ch, (size / h, size / w), order=1)
+        mask_resized = zoom(nan_mask.astype(np.float32), (size / h, size / w), order=0)
         ch_resized[mask_resized > 0.5] = np.nan
         out[:, :, c] = ch_resized
 
@@ -61,11 +66,18 @@ def resize_array(arr: np.ndarray, size: int = TARGET_SIZE) -> np.ndarray:
 
 def normalize_channels(arr: np.ndarray) -> np.ndarray:
     """
-    Normalisation zscore individuelle par canal. NaN → 0.0 après normalisation.
+    Normalisation zscore individuelle par canal. Les NaN et les pixels nuls
+    sont remplaces par 0.0 apres normalisation.
+
+    Args:
+        arr : array (H, W, 4) float32
+
+    Returns:
+        array normalise, meme shape
     """
     out = np.zeros_like(arr, dtype=np.float32)
     for c in range(4):
-        ch = arr[:, :, c]
+        ch    = arr[:, :, c]
         valid = ch[np.isfinite(ch)]
         if len(valid) < 10:
             out[:, :, c] = 0.0
@@ -74,21 +86,20 @@ def normalize_channels(arr: np.ndarray) -> np.ndarray:
         if sigma < 1e-8:
             sigma = 1.0
         normalized = (ch - mu) / sigma
-        normalized = np.where(np.isfinite(normalized), normalized, 0.0)
-        out[:, :, c] = normalized
+        out[:, :, c] = np.where(np.isfinite(normalized), normalized, 0.0)
     return out
 
 
 class MagneticMapDataset(Dataset):
     """
-    Dataset PyTorch pour les cartes magnétiques 4 canaux.
+    Dataset PyTorch pour les cartes magnetiques 4 canaux.
 
     Args:
-        paths     : liste de Path vers les fichiers .npz
-        labels    : liste d'entiers (0=no_pipe, 1=pipe)
-        augment   : si True, active les augmentations (train seulement)
-        size      : taille cible après resize (défaut: 128)
-        cache_size: nb d'images à garder en cache RAM (0 = pas de cache)
+        paths      : chemins vers les fichiers .npz
+        labels     : 0 = no_pipe, 1 = pipe
+        augment    : active les augmentations geometriques (train uniquement)
+        size       : taille cible apres resize
+        cache_size : nombre d'images a conserver en cache RAM (0 = desactive)
     """
 
     def __init__(
@@ -106,13 +117,12 @@ class MagneticMapDataset(Dataset):
         self.cache_size = cache_size
         self._cache     = {}
 
-        assert len(paths) == len(labels), "paths et labels doivent avoir la même longueur"
+        assert len(paths) == len(labels)
 
     def __len__(self) -> int:
         return len(self.paths)
 
     def _load(self, idx: int) -> np.ndarray:
-        """Charge, redimensionne et normalise une image."""
         if idx in self._cache:
             return self._cache[idx]
 
@@ -127,14 +137,10 @@ class MagneticMapDataset(Dataset):
         return arr
 
     def _augment(self, arr: np.ndarray) -> np.ndarray:
-        """Augmentations géométriques (flip + rotation 90°)."""
-        # Flip horizontal
         if random.random() > 0.5:
             arr = arr[:, ::-1, :].copy()
-        # Flip vertical
         if random.random() > 0.5:
             arr = arr[::-1, :, :].copy()
-        # Rotation 90° aléatoire
         k = random.randint(0, 3)
         if k > 0:
             arr = np.rot90(arr, k=k, axes=(0, 1)).copy()
@@ -146,7 +152,6 @@ class MagneticMapDataset(Dataset):
         if self.augment:
             arr = self._augment(arr)
 
-        # (H, W, C) → (C, H, W) pour PyTorch
         import torch
         tensor = torch.from_numpy(arr.transpose(2, 0, 1))
         label  = torch.tensor(self.labels[idx], dtype=torch.long)
@@ -154,11 +159,11 @@ class MagneticMapDataset(Dataset):
 
     def class_weights(self):
         """
-        Calcule les poids de classe inversement proportionnels à leur fréquence.
-        Utile pour gérer le déséquilibre pipe/no_pipe.
+        Poids de classe inverses a la frequence — utile pour les datasets
+        desequilibres (pipe/no_pipe dans T1, parallel/single dans T4).
         """
-        counts = np.bincount(self.labels)
-        total  = len(self.labels)
+        counts  = np.bincount(self.labels)
+        total   = len(self.labels)
         weights = total / (len(counts) * counts.astype(np.float32))
         import torch
         return torch.tensor(weights, dtype=torch.float32)
