@@ -1,27 +1,32 @@
 """
 task2/train.py
-Entraînement — Tâche 2 : Prédiction de la largeur de carte magnétique (map_width).
 
-Objectif SKIPPER : MAE < 1 mètre (métrique = 100% MAE)
+Entrainement — Tache 2 : Prediction de la largeur de carte magnetique (map_width).
 
-Dataset :
-    - Uniquement les fichiers avec label=1 (pipe présent) : ~1751 fichiers
-    - width_m fourni par le CSV pipe_presence_width_detection_label.csv
-    - Range : 2.01m → 154.84m  (médiane=25.6m, moyenne=36.9m)
+Objectif SKIPPER : MAE < 1 metre
 
-Stratégie :
-    - Entraînement en log-space (log1p) → distribution plus symétrique
-    - Loss Huber (robuste aux outliers grande largeur)
-    - Conversion en mètres (expm1) pour calculer le MAE final
-    - Les données réelles (51 fichiers avec width_m connu) → test set séparé
+Note importante : l'algorithme geometrique (scripts/geometric_width.py) atteint
+MAE = 0.61m sans entrainement. Ce script CNN est conserve pour comparaison mais
+n'est pas la methode recommandee pour la production.
+
+Raison de l'echec du deep learning sur T2 : map_width est une propriete geometrique
+de la carte de vol (largeur du couloir survole par le drone), pas une caracteristique
+statistique du signal magnetique. Aucun CNN ne peut l'inferer de facon fiable.
+
+Dataset : uniquement les fichiers avec label=1 (pipe present), soit ~1751 fichiers.
+Distribution : 2.01m a 154.84m, moyenne 36.9m, tres asymetrique.
+-> Entrainement en log-space (log1p/expm1) pour symetriser la distribution.
 
 Usage :
     python task2/train.py --csv data/pipe_presence_width_detection_label.csv \\
-                          --data_dir data/raw --epochs 30 --batch_size 32
+                          --data_dir data/raw --mode cnn --epochs 50 --batch_size 32
 
 Sorties :
     task2/checkpoints/best_model.pt
     task2/results/metrics.json
+    task2/results/baseline_results.json
+
+Auteur(s) : MAKAMTA Linda
 """
 
 import argparse
@@ -37,11 +42,13 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# PARTIE 1 : BASELINE ML (régression sur features statistiques)
-# ─────────────────────────────────────────────────────────────────────────────
-
 def run_baseline(csv_path: Path, data_dir: Path, out_dir: Path) -> dict:
+    """
+    Baseline ML par cross-validation 5-fold sur features statistiques.
+
+    L'entrainement et l'evaluation sont faits en log-space.
+    Le MAE est converti en metres (expm1) pour l'affichage.
+    """
     from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
     from sklearn.svm import SVR
     from sklearn.preprocessing import StandardScaler
@@ -52,44 +59,36 @@ def run_baseline(csv_path: Path, data_dir: Path, out_dir: Path) -> dict:
 
     from src.preprocessing.features import extract_features_batch
 
-    print("\n" + "="*60)
-    print("  BASELINE ML — Tâche 2 : map_width (régression)")
-    print("="*60)
+    print(f"\n{'='*60}")
+    print(f"  Baseline ML — Tache 2 : map_width (regression)")
+    print(f"{'='*60}")
 
-    # ── Chargement CSV ─────────────────────────────────────────
-    df = pd.read_csv(csv_path, sep=';')
-    df_pipe = df[(df['label'] == 1) & df['width_m'].notna()].copy()
-    # Exclure les réels pour la CV (on les garde pour le test final)
-    df_synth = df_pipe[~df_pipe['field_file'].str.startswith('real')].copy()
+    df       = pd.read_csv(csv_path, sep=";")
+    df_pipe  = df[(df["label"] == 1) & df["width_m"].notna()].copy()
+    df_synth = df_pipe[~df_pipe["field_file"].str.startswith("real")].copy()
 
-    print(f"\n  {len(df_synth)} fichiers synthétiques avec width_m")
-    print(f"  width_m : min={df_synth['width_m'].min():.1f}m "
-          f"max={df_synth['width_m'].max():.1f}m "
-          f"mean={df_synth['width_m'].mean():.1f}m")
+    print(f"\n  {len(df_synth)} fichiers synthetiques avec width_m")
+    print(f"  width_m : min={df_synth['width_m'].min():.1f}m  "
+          f"max={df_synth['width_m'].max():.1f}m  mean={df_synth['width_m'].mean():.1f}m")
 
-    # Construire un index filename→path en parcourant tous les sous-dossiers
-    print("  🔍 Indexation des fichiers dans data_dir...")
     file_index = {p.name: p for p in data_dir.rglob("*.npz")}
-    print(f"  {len(file_index)} fichiers .npz trouvés")
+    print(f"  {len(file_index)} fichiers .npz indexes")
 
     paths, widths = [], []
     for _, row in df_synth.iterrows():
-        fname = row['field_file']
+        fname = row["field_file"]
         if fname in file_index:
             paths.append(file_index[fname])
-            widths.append(row['width_m'])
-    print(f"  {len(paths)} fichiers matchés avec le CSV")
+            widths.append(row["width_m"])
+    print(f"  {len(paths)} fichiers matches avec le CSV")
 
-    print(f"\n⚙️  Extraction des features ({len(paths)} fichiers)...")
+    print(f"\n  extraction des features ({len(paths)} fichiers)...")
     t0 = time.time()
-    X, _ = extract_features_batch(paths, [0]*len(paths), verbose=True)
-    y    = np.array(widths)
-    print(f"  ✓ {X.shape} features en {time.time()-t0:.0f}s")
-
-    # Entraînement en log-space
+    X, _ = extract_features_batch(paths, [0] * len(paths), verbose=True)
+    y     = np.array(widths)
     y_log = np.log1p(y)
+    print(f"  {X.shape} features en {time.time()-t0:.0f}s")
 
-    # make_scorer attend (y_true, y_pred) en log-space
     def mae_metres_score(y_true_log, y_pred_log):
         return -mean_absolute_error(np.expm1(y_true_log), np.expm1(y_pred_log))
 
@@ -102,22 +101,21 @@ def run_baseline(csv_path: Path, data_dir: Path, out_dir: Path) -> dict:
         ]),
         "RandomForest": Pipeline([
             ("scaler", StandardScaler()),
-            ("reg",    RandomForestRegressor(
-                n_estimators=200, max_depth=None, n_jobs=-1, random_state=42)),
+            ("reg",    RandomForestRegressor(n_estimators=200, n_jobs=-1, random_state=42)),
         ]),
         "GradientBoosting": Pipeline([
             ("scaler", StandardScaler()),
             ("reg",    GradientBoostingRegressor(
-                n_estimators=200, learning_rate=0.05,
-                max_depth=4, random_state=42)),
+                n_estimators=200, learning_rate=0.05, max_depth=4, random_state=42
+            )),
         ]),
     }
 
     cv      = KFold(n_splits=5, shuffle=True, random_state=42)
     results = {}
 
-    print("\n📊 Évaluation par cross-validation (5 folds)...\n")
-    print(f"  {'Modèle':<22} {'MAE (m)':>10} {'Objectif':>10}")
+    print(f"\n  evaluation cross-validation (5 folds)\n")
+    print(f"  {'Modele':<22} {'MAE (m)':>10} {'Objectif':>10}")
     print("  " + "-"*44)
 
     best_mae  = float("inf")
@@ -125,36 +123,34 @@ def run_baseline(csv_path: Path, data_dir: Path, out_dir: Path) -> dict:
     best_pipe = None
 
     for name, pipe in models.items():
-        t0     = time.time()
-        cv_res = cross_validate(pipe, X, y_log, cv=cv,
-                                scoring=scorer, n_jobs=-1)
-        mae    = -cv_res["test_score"].mean()   # en mètres
+        t0      = time.time()
+        cv_res  = cross_validate(pipe, X, y_log, cv=cv, scoring=scorer, n_jobs=-1)
+        mae     = -cv_res["test_score"].mean()
         elapsed = time.time() - t0
 
         results[name] = {"mae_m": float(mae), "time_s": float(elapsed)}
 
-        ok = "✓" if mae < 1.0 else "✗"
-        print(f"  {name:<22} {mae:>8.2f}m{ok}   <1m  ({elapsed:.0f}s)")
+        ok = "ok" if mae < 1.0 else "x"
+        print(f"  {name:<22} {mae:>8.2f}m {ok}   <1m  ({elapsed:.0f}s)")
 
         if mae < best_mae:
             best_mae  = mae
             best_name = name
             best_pipe = pipe
 
-    print(f"\n🏆 Meilleur modèle : {best_name} (MAE = {best_mae:.2f}m)")
+    print(f"\n  meilleur modele : {best_name} (MAE = {best_mae:.2f}m)")
 
-    print(f"\n💾 Entraînement final sur 100% des données synthétiques...")
+    print(f"\n  entrainement final sur 100% des donnees synthetiques...")
     best_pipe.fit(X, y_log)
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    model_path = out_dir / "baseline_best.pkl"
-    with open(model_path, "wb") as f:
+    with open(out_dir / "baseline_best.pkl", "wb") as f:
         pickle.dump({
-            "model":   best_pipe,
-            "task":    "t2_map_width",
+            "model":     best_pipe,
+            "task":      "t2_map_width",
             "log_space": True,
         }, f)
-    print(f"   ✓ Modèle sauvegardé : {model_path}")
+    print(f"  modele sauvegarde : {out_dir / 'baseline_best.pkl'}")
 
     summary = {
         "task":       "t2_map_width",
@@ -168,10 +164,6 @@ def run_baseline(csv_path: Path, data_dir: Path, out_dir: Path) -> dict:
     return summary
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# PARTIE 2 : CNN RÉGRESSION
-# ─────────────────────────────────────────────────────────────────────────────
-
 def run_cnn(
     csv_path:   Path,
     data_dir:   Path,
@@ -182,13 +174,20 @@ def run_cnn(
     lr:         float = 1e-3,
     val_split:  float = 0.2,
 ) -> dict:
+    """
+    Entrainement CNN de regression pour la Tache 2.
+
+    Loss Huber (delta=1.0) pour la robustesse aux grandes largeurs.
+    Le checkpoint est sauvegarde sur le meilleur MAE de validation (en metres).
+    Les 51 donnees reelles labelisees sont evaluees separement apres l'entrainement.
+    """
     try:
         import torch
         import torch.nn as nn
         from torch.utils.data import DataLoader
         from sklearn.model_selection import train_test_split
     except ImportError:
-        print("[!] PyTorch non disponible.")
+        print("PyTorch non disponible.")
         return {}
 
     from src.models.cnn_task2 import get_regressor, count_params
@@ -196,53 +195,50 @@ def run_cnn(
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"\n{'='*60}")
-    print(f"  CNN Régression — Tâche 2 : map_width | modèle: {model_name}")
-    print(f"  Device: {device}")
+    print(f"  CNN Regression — Tache 2 : map_width | modele: {model_name}")
+    print(f"  device: {device}")
     print(f"{'='*60}")
 
-    # ── Chargement CSV ─────────────────────────────────────────
-    df       = pd.read_csv(csv_path, sep=';')
-    df_pipe  = df[(df['label'] == 1) & df['width_m'].notna()].copy()
-    df_synth = df_pipe[~df_pipe['field_file'].str.startswith('real')].copy()
-    df_real  = df_pipe[df_pipe['field_file'].str.startswith('real')].copy()
+    df       = pd.read_csv(csv_path, sep=";")
+    df_pipe  = df[(df["label"] == 1) & df["width_m"].notna()].copy()
+    df_synth = df_pipe[~df_pipe["field_file"].str.startswith("real")].copy()
+    df_real  = df_pipe[df_pipe["field_file"].str.startswith("real")].copy()
 
-    # Résoudre les chemins (chercher dans les sous-dossiers)
     def find_path(filename: str) -> Path:
         for p in data_dir.rglob(filename):
             return p
-        return data_dir / filename  # fallback
+        return data_dir / filename
 
-    synth_paths  = [find_path(f) for f in df_synth['field_file']]
-    synth_widths = df_synth['width_m'].tolist()
-
-    # Filtrer les fichiers existants
-    valid = [(p, w) for p, w in zip(synth_paths, synth_widths) if p.exists()]
+    synth_paths  = [find_path(f) for f in df_synth["field_file"]]
+    synth_widths = df_synth["width_m"].tolist()
+    valid        = [(p, w) for p, w in zip(synth_paths, synth_widths) if p.exists()]
     synth_paths  = [v[0] for v in valid]
     synth_widths = [v[1] for v in valid]
 
-    real_paths  = [find_path(f) for f in df_real['field_file']]
-    real_widths = df_real['width_m'].tolist()
+    real_paths  = [find_path(f) for f in df_real["field_file"]]
+    real_widths = df_real["width_m"].tolist()
     real_valid  = [(p, w) for p, w in zip(real_paths, real_widths) if p.exists()]
     real_paths  = [v[0] for v in real_valid]
     real_widths = [v[1] for v in real_valid]
 
-    print(f"\n  Synthétiques : {len(synth_paths)} | Réels : {len(real_paths)}")
-    print(f"  width_m synthétiques : "
-          f"min={min(synth_widths):.1f}m max={max(synth_widths):.1f}m "
+    print(f"\n  synthetiques : {len(synth_paths)} | reels : {len(real_paths)}")
+    print(f"  width_m : min={min(synth_widths):.1f}m  max={max(synth_widths):.1f}m  "
           f"mean={np.mean(synth_widths):.1f}m")
 
-    # Split train/val sur synthétiques uniquement
     idx_train, idx_val = train_test_split(
         range(len(synth_paths)), test_size=val_split, random_state=42
     )
 
-    train_paths  = [synth_paths[i]  for i in idx_train]
-    train_widths = [synth_widths[i] for i in idx_train]
-    val_paths    = [synth_paths[i]  for i in idx_val]
-    val_widths   = [synth_widths[i] for i in idx_val]
-
-    train_ds = RegressionDataset(train_paths, train_widths, augment=True)
-    val_ds   = RegressionDataset(val_paths,   val_widths,   augment=False)
+    train_ds = RegressionDataset(
+        [synth_paths[i] for i in idx_train],
+        [synth_widths[i] for i in idx_train],
+        augment=True,
+    )
+    val_ds = RegressionDataset(
+        [synth_paths[i] for i in idx_val],
+        [synth_widths[i] for i in idx_val],
+        augment=False,
+    )
 
     nw = 0
     pm = torch.cuda.is_available()
@@ -251,30 +247,25 @@ def run_cnn(
     val_loader   = DataLoader(val_ds,   batch_size=batch_size, shuffle=False,
                               num_workers=nw, pin_memory=pm)
 
-    print(f"  Train: {len(train_ds)} | Val: {len(val_ds)}")
+    print(f"  train: {len(train_ds)} | val: {len(val_ds)}")
 
-    # ── Modèle ────────────────────────────────────────────────
-    model = get_regressor(model_name).to(device)
-    print(f"  Paramètres : {count_params(model):,}")
+    model     = get_regressor(model_name).to(device)
+    print(f"  parametres : {count_params(model):,}")
 
-    # Huber loss (robuste aux grandes largeurs / outliers)
     criterion = nn.HuberLoss(delta=1.0)
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 
-    # ── Boucle ────────────────────────────────────────────────
     out_dir.mkdir(parents=True, exist_ok=True)
     best_mae_val     = float("inf")
     patience_counter = 0
     patience         = 10
     history          = []
 
-    print(f"\n{'Epoch':>6} {'Train Loss':>12} {'Val Loss':>10} "
-          f"{'Val MAE':>10} {'LR':>10}")
+    print(f"\n{'Epoch':>6} {'Train Loss':>12} {'Val Loss':>10} {'Val MAE':>10} {'LR':>10}")
     print("-" * 54)
 
     for epoch in range(1, epochs + 1):
-        # ── Train ──
         model.train()
         train_loss = 0.0
         for x, y_batch in train_loader:
@@ -288,7 +279,6 @@ def run_cnn(
             train_loss += loss.item() * len(x)
         train_loss /= len(train_ds)
 
-        # ── Validation ──
         model.eval()
         val_loss    = 0.0
         all_preds   = []
@@ -296,17 +286,15 @@ def run_cnn(
         with torch.no_grad():
             for x, y_batch in val_loader:
                 x, y_batch = x.to(device), y_batch.to(device)
-                pred      = model(x)
-                val_loss += criterion(pred, y_batch).item() * len(x)
+                pred        = model(x)
+                val_loss   += criterion(pred, y_batch).item() * len(x)
                 all_preds.extend(pred.cpu().numpy())
                 all_targets.extend(y_batch.cpu().numpy())
 
         val_loss /= len(val_ds)
-
-        # MAE en mètres (convertir depuis log-space)
-        preds_m   = np.expm1(np.array(all_preds))
-        targets_m = np.expm1(np.array(all_targets))
-        mae_m     = float(np.abs(preds_m - targets_m).mean())
+        mae_m     = float(np.abs(
+            np.expm1(np.array(all_preds)) - np.expm1(np.array(all_targets))
+        ).mean())
 
         scheduler.step()
         current_lr = scheduler.get_last_lr()[0]
@@ -316,11 +304,10 @@ def run_cnn(
             "val_mae_m": mae_m,
         })
 
-        ok = "✓" if mae_m < 1.0 else "✗"
+        ok = "ok" if mae_m < 1.0 else "x"
         print(f"{epoch:>6} {train_loss:>12.4f} {val_loss:>10.4f} "
-              f"{mae_m:>8.2f}m{ok}  {current_lr:>10.6f}")
+              f"{mae_m:>8.2f}m {ok}  {current_lr:>10.6f}")
 
-        # Sauvegarde sur meilleur MAE
         if mae_m < best_mae_val:
             best_mae_val     = mae_m
             patience_counter = 0
@@ -333,26 +320,24 @@ def run_cnn(
                 "task":        "t2_map_width",
                 "log_space":   True,
             }, out_dir / "best_model.pt")
-            print(f"         ↑ Meilleur modèle sauvegardé (MAE={mae_m:.2f}m)")
+            print(f"         meilleur modele sauvegarde (MAE={mae_m:.2f}m)")
         else:
             patience_counter += 1
             if patience_counter >= patience:
-                print(f"\n⏹  Early stopping à l'epoch {epoch} (patience={patience})")
+                print(f"\n  early stopping epoch {epoch} (patience={patience})")
                 break
 
-    torch.save({"epoch": epoch, "model_state": model.state_dict()},
-               out_dir / "last_model.pt")
+    torch.save({"epoch": epoch, "model_state": model.state_dict()}, out_dir / "last_model.pt")
 
-    # ── Test final sur les données réelles ────────────────────
+    # Test final sur les donnees reelles
     real_mae = None
     if real_paths:
-        print(f"\n🔍 Test sur {len(real_paths)} données réelles...")
+        print(f"\n  test sur {len(real_paths)} donnees reelles...")
         real_ds     = RegressionDataset(real_paths, real_widths, augment=False)
         real_loader = DataLoader(real_ds, batch_size=batch_size, shuffle=False,
                                  num_workers=0, pin_memory=False)
 
-        # Recharger le meilleur checkpoint
-        ckpt  = torch.load(out_dir / "best_model.pt", map_location=device)
+        ckpt = torch.load(out_dir / "best_model.pt", map_location=device)
         model.load_state_dict(ckpt["model_state"])
         model.eval()
 
@@ -360,53 +345,43 @@ def run_cnn(
         all_tgts_r  = []
         with torch.no_grad():
             for x, y_batch in real_loader:
-                x = x.to(device)
-                pred = model(x)
-                all_preds_r.extend(pred.cpu().numpy())
+                all_preds_r.extend(model(x.to(device)).cpu().numpy())
                 all_tgts_r.extend(y_batch.numpy())
 
         preds_r_m = np.expm1(np.array(all_preds_r))
         tgts_r_m  = np.expm1(np.array(all_tgts_r))
         real_mae  = float(np.abs(preds_r_m - tgts_r_m).mean())
 
-        ok_r = "✓" if real_mae < 1.0 else "✗"
-        print(f"   MAE sur réels : {real_mae:.2f}m {ok_r}  (objectif: <1m)")
+        ok_r = "ok" if real_mae < 1.0 else "x"
+        print(f"  MAE sur reels : {real_mae:.2f}m {ok_r}  (objectif: <1m)")
 
-        # Détail par fichier
-        real_files = [p.name for p in real_paths]
-        for fname, pred_m, true_m in zip(real_files, preds_r_m, tgts_r_m):
+        for fname, pred_m, true_m in zip([p.name for p in real_paths], preds_r_m, tgts_r_m):
             err = abs(pred_m - true_m)
-            print(f"   {fname:<40} pred={pred_m:6.1f}m  true={true_m:6.1f}m  "
-                  f"err={err:5.1f}m")
+            print(f"  {fname:<40} pred={pred_m:6.1f}m  true={true_m:6.1f}m  err={err:5.1f}m")
 
     results = {
-        "task":              "t2_map_width",
-        "model":             model_name,
-        "best_val_mae_m":    float(best_mae_val),
-        "real_mae_m":        real_mae,
-        "epochs_trained":    epoch,
-        "history":           history,
+        "task":           "t2_map_width",
+        "model":          model_name,
+        "best_val_mae_m": float(best_mae_val),
+        "real_mae_m":     real_mae,
+        "epochs_trained": epoch,
+        "history":        history,
     }
 
     with open(out_dir / "metrics.json", "w") as f:
         json.dump(results, f, indent=2)
 
-    ok = "✅" if best_mae_val < 1.0 else "❌"
-    print(f"\n{ok} Entraînement terminé")
-    print(f"   Best val MAE : {best_mae_val:.2f}m  (objectif: <1m)")
+    ok = "OK" if best_mae_val < 1.0 else "KO"
+    print(f"\n  {ok} best val MAE : {best_mae_val:.2f}m  (objectif: <1m)")
     if real_mae:
-        print(f"   MAE réels   : {real_mae:.2f}m")
-    print(f"   Checkpoints  : {out_dir}")
+        print(f"  MAE reels : {real_mae:.2f}m")
+    print(f"  checkpoints : {out_dir}")
 
     return results
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# CLI
-# ─────────────────────────────────────────────────────────────────────────────
-
 def main():
-    parser = argparse.ArgumentParser(description="Train — Tâche 2 : map_width")
+    parser = argparse.ArgumentParser(description="Train — Tache 2 : map_width")
     parser.add_argument("--mode",       type=str, default="cnn",
                         choices=["baseline", "cnn"])
     parser.add_argument("--model",      type=str, default="cnn",
@@ -426,13 +401,12 @@ def main():
     out_dir  = ROOT / args.out_dir
 
     if not csv_path.exists():
-        print(f"[!] CSV introuvable : {csv_path}")
-        print(f"    Placer le fichier pipe_presence_width_detection_label.csv dans data/")
+        print(f"CSV introuvable : {csv_path}")
+        print(f"placer pipe_presence_width_detection_label.csv dans data/")
         return
 
     if args.mode == "baseline":
-        out_dir = ROOT / "task2/results"
-        run_baseline(csv_path, data_dir, out_dir)
+        run_baseline(csv_path, data_dir, ROOT / "task2/results")
     else:
         run_cnn(
             csv_path, data_dir, out_dir,
